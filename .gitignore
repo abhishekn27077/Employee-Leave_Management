@@ -1,0 +1,70 @@
+# ==========================================
+# Employee Leave Management System - .gitignore
+# ==========================================
+
+# Compiled Backend & Build Artifacts
+target/
+build/
+dist/
+*.class
+*.jar
+*.war
+*.ear
+
+# Frontend Build & Dependencies
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment & Local Secrets Configuration
+.env
+.env.*
+*.env
+*.env.properties
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+application-local.properties
+*local.properties
+src/main/resources/application-local.properties
+src/test/resources/application-local.properties
+
+# Logs
+*.log
+logs/
+
+# Maven Wrapper & Cache
+.mvn/wrapper/maven-wrapper.jar
+.sts4-cache/
+
+# IDE Metadata
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+!.vscode/extensions.json
+.settings/
+.classpath
+.project
+.factorypath
+.apt_generated
+.springBeans
+/nbproject/private/
+/nbbuild/
+/nbdist/
+/.nb-gradle/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
