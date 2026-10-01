@@ -6,7 +6,9 @@ import {
   IconEmployees,
   IconLeaveTypes,
   IconLeaves,
+  IconCalendar,
   IconPlus,
+  IconClock,
   IconX,
 } from './Icons';
 
@@ -17,6 +19,11 @@ function Sidebar({ isOpen, onClose }) {
     { to: '/employees', label: 'Employees', icon: <IconEmployees size={18} /> },
     { to: '/leave-types', label: 'Leave Types', icon: <IconLeaveTypes size={18} /> },
     { to: '/leaves', label: 'Leave Requests', icon: <IconLeaves size={18} />, end: true },
+    { to: '/balances', label: 'Leave Balances', icon: <IconLeaves size={18} /> },
+    { to: '/adjustments', label: 'Leave Adjustments', icon: <IconPlus size={18} /> },
+    { to: '/audit', label: 'Audit History', icon: <IconClock size={18} /> },
+    { to: '/holidays', label: 'Holiday Calendar', icon: <IconCalendar size={18} /> },
+    { to: '/availability', label: 'Team Availability', icon: <IconDashboard size={18} /> },
   ];
 
   return (

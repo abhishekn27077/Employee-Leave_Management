@@ -52,17 +52,34 @@ function Leaves() {
     fetchLeaves();
   }, []);
 
-  const openConfirmDialog = (type, leave) => {
+  const [evaluatingConflicts, setEvaluatingConflicts] = useState(false);
+  const [conflictData, setConflictData] = useState(null);
+
+  const openConfirmDialog = async (type, leave) => {
     setWorkflowAction({
       isOpen: true,
       type,
       leave,
     });
+    setConflictData(null);
+
+    if (type === 'approve' && leave?.id) {
+      setEvaluatingConflicts(true);
+      try {
+        const res = await leaveApi.checkConflicts(leave.id);
+        setConflictData(res.data);
+      } catch (err) {
+        console.error('Error pre-checking leave conflicts:', err);
+      } finally {
+        setEvaluatingConflicts(false);
+      }
+    }
   };
 
   const closeConfirmDialog = () => {
     if (!actionLoading) {
       setWorkflowAction({ isOpen: false, type: null, leave: null });
+      setConflictData(null);
     }
   };
 
@@ -129,9 +146,25 @@ function Leaves() {
 
     switch (type) {
       case 'approve':
+        if (evaluatingConflicts) {
+          return {
+            title: 'Evaluating Leave Conflicts...',
+            message: `Auditing balance, policies, overlapping dates & workforce availability for ${empName}...`,
+            confirmText: 'Checking...',
+            confirmVariant: 'primary',
+          };
+        }
+        if (conflictData && !conflictData.canApprove) {
+          return {
+            title: 'Cannot Approve: Policy Conflicts Detected',
+            message: `Leave request #${leave.id} for ${empName} cannot be approved due to business policy conflicts.`,
+            confirmText: 'Approval Blocked',
+            confirmVariant: 'danger',
+          };
+        }
         return {
           title: 'Approve Leave Request',
-          message: `Confirm approval of leave request #${leave.id} for ${empName} (${leave.startDate} to ${leave.endDate})? This will commit the approval status to the employee's active records.`,
+          message: `Confirm approval of leave request #${leave.id} for ${empName} (${leave.startDate} to ${leave.endDate})?`,
           confirmText: 'Approve Request',
           confirmVariant: 'success',
         };
@@ -360,17 +393,96 @@ function Leaves() {
         )}
       </div>
 
-      {/* Workflow Decision Confirmation Modal */}
+      {/* Workflow Decision Confirmation Modal with Conflict Detection */}
       <ConfirmDialog
         isOpen={workflowAction.isOpen}
         title={dialogConfig.title || 'Confirm Action'}
         message={dialogConfig.message || ''}
         confirmText={dialogConfig.confirmText || 'Confirm'}
         confirmVariant={dialogConfig.confirmVariant || 'primary'}
-        loading={actionLoading}
+        loading={actionLoading || evaluatingConflicts}
+        confirmDisabled={workflowAction.type === 'approve' && (evaluatingConflicts || (conflictData && !conflictData.canApprove))}
         onConfirm={handleExecuteWorkflow}
         onCancel={closeConfirmDialog}
-      />
+      >
+        {workflowAction.type === 'approve' && (
+          <div style={{ marginTop: '0.75rem' }}>
+            {evaluatingConflicts && (
+              <div style={{ padding: '0.6rem 0.8rem', background: '#f8fafc', borderRadius: '6px', fontSize: '0.85rem', color: '#64748b' }}>
+                <span className="spinner-small" style={{ marginRight: '0.5rem' }}></span>
+                Checking leave balance, policy limits, holidays, overlaps & department availability...
+              </div>
+            )}
+
+            {!evaluatingConflicts && conflictData && (
+              <>
+                {!conflictData.canApprove ? (
+                  <div style={{
+                    padding: '0.85rem 1rem',
+                    background: '#fef2f2',
+                    border: '1px solid #fecaca',
+                    borderRadius: '8px',
+                    color: '#991b1b',
+                    fontSize: '0.85rem'
+                  }}>
+                    <div style={{ fontWeight: 600, marginBottom: '0.4rem', color: '#b91c1c' }}>
+                      ⚠️ Approval Blocked: {conflictData.conflicts?.length || 0} Conflict(s) Detected
+                    </div>
+                    <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                      {conflictData.conflicts?.map((c, i) => (
+                        <li key={i} style={{ marginBottom: '0.3rem' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            background: '#fee2e2',
+                            color: '#991b1b',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: '4px',
+                            marginRight: '6px'
+                          }}>
+                            {c.type}
+                          </span>
+                          <span>{c.message}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '0.85rem 1rem',
+                    background: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '8px',
+                    color: '#166534',
+                    fontSize: '0.85rem'
+                  }}>
+                    <div style={{ fontWeight: 600, color: '#15803d', marginBottom: '0.3rem' }}>
+                      ✓ Zero Conflicts Detected — Ready for Approval
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: '#166534', display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                      <span><strong>Total Days:</strong> {conflictData.calculatedTotalDays}</span>
+                      <span><strong>Holiday Excluded:</strong> {conflictData.holidayCount}</span>
+                      <span><strong>Effective Days:</strong> {conflictData.calculatedEffectiveDays}</span>
+                      <span><strong>Current Balance:</strong> {conflictData.remainingBalance} days</span>
+                      {conflictData.availabilityInfo && (
+                        <span><strong>Min Team Avail:</strong> {conflictData.availabilityInfo.minProjectedAvailabilityPercentage}%</span>
+                      )}
+                    </div>
+                    {conflictData.warnings?.length > 0 && (
+                      <div style={{ marginTop: '0.5rem', color: '#854d0e', fontSize: '0.8rem' }}>
+                        {conflictData.warnings.map((w, idx) => (
+                          <div key={idx}>ℹ️ {w}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

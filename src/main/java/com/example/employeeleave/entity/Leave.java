@@ -51,6 +51,10 @@ public class Leave {
     public Leave() {
     }
 
+    public Leave(Employee employee, LeaveType leaveType, LocalDate startDate, LocalDate endDate, String reason, LeaveStatus status) {
+        this(employee, leaveType, startDate, endDate, reason, status, LocalDateTime.now());
+    }
+
     public Leave(Employee employee, LeaveType leaveType, LocalDate startDate, LocalDate endDate, String reason, LeaveStatus status, LocalDateTime appliedAt) {
         this.employee = employee;
         this.leaveType = leaveType;
@@ -58,7 +62,7 @@ public class Leave {
         this.endDate = endDate;
         this.reason = reason;
         this.status = status;
-        this.appliedAt = appliedAt;
+        this.appliedAt = appliedAt != null ? appliedAt : LocalDateTime.now();
     }
 
     public Long getId() {

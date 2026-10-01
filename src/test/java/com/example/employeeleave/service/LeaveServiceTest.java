@@ -1,5 +1,8 @@
 package com.example.employeeleave.service;
 
+import com.example.employeeleave.dto.ConflictDetailDTO;
+import com.example.employeeleave.dto.ConflictType;
+import com.example.employeeleave.dto.LeaveConflictResponseDTO;
 import com.example.employeeleave.dto.LeaveRequestDTO;
 import com.example.employeeleave.entity.Department;
 import com.example.employeeleave.entity.Employee;
@@ -7,6 +10,7 @@ import com.example.employeeleave.entity.Leave;
 import com.example.employeeleave.entity.LeaveStatus;
 import com.example.employeeleave.entity.LeaveType;
 import com.example.employeeleave.exception.BadRequestException;
+import com.example.employeeleave.exception.LeaveConflictException;
 import com.example.employeeleave.exception.ResourceNotFoundException;
 import com.example.employeeleave.repository.EmployeeRepository;
 import com.example.employeeleave.repository.LeaveRepository;
@@ -39,6 +43,18 @@ class LeaveServiceTest {
 
     @Mock
     private LeaveTypeRepository leaveTypeRepository;
+
+    @Mock
+    private LeaveBalanceService leaveBalanceService;
+
+    @Mock
+    private HolidayService holidayService;
+
+    @Mock
+    private LeaveConflictService leaveConflictService;
+
+    @Mock
+    private AuditHistoryService auditHistoryService;
 
     @InjectMocks
     private LeaveService leaveService;
@@ -198,13 +214,35 @@ class LeaveServiceTest {
     @Test
     void testApproveLeave_Success() {
         when(leaveRepository.findById(100L)).thenReturn(Optional.of(leave));
+        LeaveConflictResponseDTO evaluation = new LeaveConflictResponseDTO();
+        evaluation.setCanApprove(true);
+        when(leaveConflictService.evaluateLeave(eq(leave), any())).thenReturn(evaluation);
         when(leaveRepository.save(any(Leave.class))).thenReturn(leave);
 
         Leave approved = leaveService.approveLeave(100L);
 
         assertNotNull(approved);
         assertEquals(LeaveStatus.APPROVED, leave.getStatus());
+        verify(leaveConflictService, times(1)).evaluateLeave(eq(leave), any());
+        verify(leaveBalanceService, times(1)).deductApprovedDays(any(), any(), anyInt());
         verify(leaveRepository, times(1)).save(leave);
+    }
+
+    @Test
+    void testApproveLeave_ConflictDetected_ThrowsLeaveConflictException() {
+        when(leaveRepository.findById(100L)).thenReturn(Optional.of(leave));
+        LeaveConflictResponseDTO evaluation = new LeaveConflictResponseDTO();
+        evaluation.setCanApprove(false);
+        evaluation.setConflicts(List.of(new ConflictDetailDTO(ConflictType.INSUFFICIENT_BALANCE, "Insufficient leave balance", true)));
+        when(leaveConflictService.evaluateLeave(eq(leave), any())).thenReturn(evaluation);
+
+        LeaveConflictException ex = assertThrows(LeaveConflictException.class, () -> leaveService.approveLeave(100L));
+
+        assertTrue(ex.getMessage().contains("Insufficient leave balance"));
+        assertEquals(1, ex.getConflicts().size());
+        assertEquals(LeaveStatus.PENDING, leave.getStatus());
+        verify(leaveBalanceService, never()).deductApprovedDays(any(), any(), anyInt());
+        verify(leaveRepository, never()).save(any(Leave.class));
     }
 
     @Test
@@ -277,5 +315,31 @@ class LeaveServiceTest {
         when(leaveRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> leaveService.cancelLeave(999L));
+    }
+
+    @Test
+    void testApplyLeave_InsufficientBalance_ThrowsBadRequestException() {
+        when(employeeRepository.findById(10L)).thenReturn(Optional.of(employee));
+        when(leaveTypeRepository.findById(5L)).thenReturn(Optional.of(leaveType));
+        doThrow(new BadRequestException("Insufficient leave balance"))
+                .when(leaveBalanceService).checkBalance(any(Employee.class), any(LeaveType.class), anyInt());
+
+        assertThrows(BadRequestException.class, () -> leaveService.applyLeave(requestDTO));
+        verify(leaveRepository, never()).save(any(Leave.class));
+    }
+
+    @Test
+    void testApproveLeave_DeductsBalance() {
+        when(leaveRepository.findById(100L)).thenReturn(Optional.of(leave));
+        LeaveConflictResponseDTO evaluation = new LeaveConflictResponseDTO();
+        evaluation.setCanApprove(true);
+        when(leaveConflictService.evaluateLeave(eq(leave), any())).thenReturn(evaluation);
+        when(leaveRepository.save(any(Leave.class))).thenReturn(leave);
+
+        Leave approved = leaveService.approveLeave(100L);
+
+        assertNotNull(approved);
+        assertEquals(LeaveStatus.APPROVED, approved.getStatus());
+        verify(leaveBalanceService, times(1)).deductApprovedDays(eq(employee), eq(leaveType), eq(3));
     }
 }

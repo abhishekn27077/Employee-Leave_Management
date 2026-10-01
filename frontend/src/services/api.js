@@ -11,6 +11,9 @@ const api = axios.create({
 
 export const extractErrorMessage = (error) => {
   if (error.response && error.response.data) {
+    if (error.response.data.conflicts && Array.isArray(error.response.data.conflicts) && error.response.data.conflicts.length > 0) {
+      return error.response.data.conflicts.map((c) => `[${c.type}]: ${c.message}`).join(' \n• ');
+    }
     if (error.response.data.message) {
       return error.response.data.message;
     }
@@ -58,6 +61,60 @@ export const leaveApi = {
   approve: (id) => api.put(`/leaves/${id}/approve`),
   reject: (id) => api.put(`/leaves/${id}/reject`),
   cancel: (id) => api.put(`/leaves/${id}/cancel`),
+  checkConflicts: (id, minAvailabilityThreshold) =>
+    api.get(`/leaves/${id}/conflicts`, {
+      params: minAvailabilityThreshold ? { minAvailabilityThreshold } : {},
+    }),
+  evaluateConflicts: (data, minAvailabilityThreshold) =>
+    api.post('/leaves/evaluate-conflicts', data, {
+      params: minAvailabilityThreshold ? { minAvailabilityThreshold } : {},
+    }),
+};
+
+export const leavePolicyApi = {
+  getAll: () => api.get('/leave-policies'),
+  getById: (id) => api.get(`/leave-policies/${id}`),
+  create: (data) => api.post('/leave-policies', data),
+  update: (id, data) => api.put(`/leave-policies/${id}`, data),
+  delete: (id) => api.delete(`/leave-policies/${id}`),
+};
+
+export const leaveBalanceApi = {
+  getAll: (params) => api.get('/leave-balances', { params }),
+  getById: (id) => api.get(`/leave-balances/${id}`),
+  getByEmployee: (employeeId) => api.get(`/leave-balances/employee/${employeeId}`),
+  create: (data) => api.post('/leave-balances', data),
+};
+
+export const holidayApi = {
+  getAll: () => api.get('/holidays'),
+  getById: (id) => api.get(`/holidays/${id}`),
+  create: (data) => api.post('/holidays', data),
+  update: (id, data) => api.put(`/holidays/${id}`, data),
+  delete: (id) => api.delete(`/holidays/${id}`),
+  getRange: (start, end) => api.get('/holidays/range', { params: { start, end } }),
+};
+
+export const availabilityApi = {
+  getDepartmentAvailability: (departmentId, date) =>
+    api.get('/availability', { params: { departmentId, date } }),
+};
+
+export const leaveAdjustmentApi = {
+  getAll: () => api.get('/leave-adjustments'),
+  getById: (id) => api.get(`/leave-adjustments/${id}`),
+  getByEmployee: (employeeId) => api.get(`/leave-adjustments/employee/${employeeId}`),
+  create: (data) => api.post('/leave-adjustments', data),
+};
+
+export const auditHistoryApi = {
+  getAll: (params) => api.get('/audit-history', { params }),
+  getById: (id) => api.get(`/audit-history/${id}`),
+};
+
+export const dashboardApi = {
+  getOverview: (date) => api.get('/dashboard/overview', { params: date ? { date } : {} }),
 };
 
 export default api;
+

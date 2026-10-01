@@ -8,6 +8,11 @@ import Employees from './pages/Employees';
 import LeaveTypes from './pages/LeaveTypes';
 import Leaves from './pages/Leaves';
 import ApplyLeave from './pages/ApplyLeave';
+import LeaveBalances from './pages/LeaveBalances';
+import Holidays from './pages/Holidays';
+import TeamAvailability from './pages/TeamAvailability';
+import LeaveAdjustments from './pages/LeaveAdjustments';
+import AuditHistory from './pages/AuditHistory';
 
 function NotFound() {
   return (
@@ -45,6 +50,11 @@ function App() {
               <Route path="/employees" element={<Employees />} />
               <Route path="/leave-types" element={<LeaveTypes />} />
               <Route path="/leaves" element={<Leaves />} />
+              <Route path="/balances" element={<LeaveBalances />} />
+              <Route path="/adjustments" element={<LeaveAdjustments />} />
+              <Route path="/audit" element={<AuditHistory />} />
+              <Route path="/holidays" element={<Holidays />} />
+              <Route path="/availability" element={<TeamAvailability />} />
               <Route path="/apply-leave" element={<ApplyLeave />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

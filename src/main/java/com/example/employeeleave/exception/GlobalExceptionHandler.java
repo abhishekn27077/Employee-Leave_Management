@@ -1,6 +1,7 @@
 package com.example.employeeleave.exception;
 
 import com.example.employeeleave.dto.ErrorResponse;
+import com.example.employeeleave.dto.LeaveConflictErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,18 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(LeaveConflictException.class)
+    public ResponseEntity<LeaveConflictErrorResponse> handleLeaveConflictException(LeaveConflictException ex, HttpServletRequest request) {
+        LeaveConflictErrorResponse errorResponse = new LeaveConflictErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Leave Conflict Detected",
+                ex.getMessage(),
+                request.getRequestURI(),
+                ex.getConflicts()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(BadRequestException.class)
@@ -77,6 +90,17 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(org.springframework.web.bind.MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameterException(org.springframework.web.bind.MissingServletRequestParameterException ex, HttpServletRequest request) {
+        ErrorResponse errorResponse = new ErrorResponse(
+                HttpStatus.BAD_REQUEST.value(),
+                "Missing Parameter",
+                "Required parameter '" + ex.getParameterName() + "' is missing",
+                request.getRequestURI()
+        );
+        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleHttpRequestMethodNotSupportedException(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) {
         ErrorResponse errorResponse = new ErrorResponse(
@@ -90,10 +114,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolationException(DataIntegrityViolationException ex, HttpServletRequest request) {
+        String message = "Data integrity violation: duplicate value or invalid reference";
+        String rootMsg = ex.getRootCause() != null ? ex.getRootCause().getMessage() : ex.getMessage();
+        if (rootMsg != null && (rootMsg.toLowerCase().contains("foreign key") || rootMsg.toLowerCase().contains("constraint"))) {
+            message = "Cannot modify or delete record because it is referenced by other records (foreign key constraint).";
+        }
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.CONFLICT.value(),
                 "Conflict",
-                "Data integrity violation: duplicate value or invalid reference",
+                message,
                 request.getRequestURI()
         );
         return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);

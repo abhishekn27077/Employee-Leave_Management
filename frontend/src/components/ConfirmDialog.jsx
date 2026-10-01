@@ -9,6 +9,8 @@ function ConfirmDialog({
   cancelText = 'Cancel',
   confirmVariant = 'primary', // 'primary' | 'danger' | 'warning' | 'success'
   loading = false,
+  confirmDisabled = false,
+  children,
   onConfirm,
   onCancel,
 }) {
@@ -76,7 +78,8 @@ function ConfirmDialog({
           </div>
           <div className="confirm-dialog-content">
             <h3 id="confirm-dialog-title" className="confirm-title">{title}</h3>
-            <p className="confirm-message">{message}</p>
+            {message && <p className="confirm-message">{message}</p>}
+            {children}
           </div>
         </div>
 
@@ -93,7 +96,7 @@ function ConfirmDialog({
             type="button"
             className={`btn ${btnClass}`}
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || confirmDisabled}
           >
             {loading ? 'Processing...' : confirmText}
           </button>
