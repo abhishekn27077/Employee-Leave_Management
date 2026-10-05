@@ -11,5 +11,7 @@ public interface LeaveAdjustmentRepository extends JpaRepository<LeaveAdjustment
 
     List<LeaveAdjustment> findByEmployeeIdOrderByCreatedAtDesc(Long employeeId);
 
+    List<LeaveAdjustment> findByEmployeeDepartmentIdOrderByCreatedAtDesc(Long departmentId);
+
     List<LeaveAdjustment> findAllByOrderByCreatedAtDesc();
 }

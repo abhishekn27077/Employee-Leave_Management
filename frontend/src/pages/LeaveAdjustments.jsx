@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { employeeApi, leaveTypeApi, leaveAdjustmentApi, leaveBalanceApi, extractErrorMessage } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
@@ -9,10 +10,13 @@ import {
   IconPlus,
   IconSearch,
   IconRefresh,
-  IconCheck,
+  IconLeaves,
 } from '../components/Icons';
 
 export default function LeaveAdjustments() {
+  const { user } = useAuth();
+  const isHrAdmin = user?.role === 'HR_ADMIN';
+
   const [adjustments, setAdjustments] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [leaveTypes, setLeaveTypes] = useState([]);
@@ -82,8 +86,8 @@ export default function LeaveAdjustments() {
 
   const handleOpenModal = () => {
     setForm({
-      employeeId: employees.length > 0 ? employees[0].id : '',
-      leaveTypeId: leaveTypes.length > 0 ? leaveTypes[0].id : '',
+      employeeId: employees.length > 0 ? String(employees[0].id) : '',
+      leaveTypeId: leaveTypes.length > 0 ? String(leaveTypes[0].id) : '',
       adjustmentDays: '',
       reason: '',
       reference: '',
@@ -101,11 +105,11 @@ export default function LeaveAdjustments() {
     }
     const days = parseInt(form.adjustmentDays, 10);
     if (isNaN(days) || days === 0) {
-      setError('Adjustment days must be a non-zero integer (positive or negative).');
+      setError('Adjustment days must be a non-zero integer (positive to credit, negative to deduct).');
       return;
     }
     if (!form.reason.trim()) {
-      setError('Reason is required for accountability.');
+      setError('Reason is required for auditing and accountability.');
       return;
     }
 
@@ -137,13 +141,17 @@ export default function LeaveAdjustments() {
     const matchesEmp =
       selectedEmployeeFilter === 'ALL' || adj.employee?.id === Number(selectedEmployeeFilter);
     const searchLower = searchTerm.toLowerCase();
-    const empName = `${adj.employee?.firstName || ''} ${adj.employee?.lastName || ''}`.toLowerCase();
+    const empName = (adj.employee?.name || `${adj.employee?.firstName || ''} ${adj.employee?.lastName || ''}`.trim() || '').toLowerCase();
+    const empCode = (adj.employee?.employeeId || '').toLowerCase();
+    const deptName = (adj.employee?.department?.name || '').toLowerCase();
     const ltName = (adj.leaveType?.name || '').toLowerCase();
     const reason = (adj.reason || '').toLowerCase();
     const ref = (adj.reference || '').toLowerCase();
     const matchesSearch =
       !searchTerm ||
       empName.includes(searchLower) ||
+      empCode.includes(searchLower) ||
+      deptName.includes(searchLower) ||
       ltName.includes(searchLower) ||
       reason.includes(searchLower) ||
       ref.includes(searchLower);
@@ -151,129 +159,194 @@ export default function LeaveAdjustments() {
     return matchesEmp && matchesSearch;
   });
 
+  const totalPositive = adjustments.filter((a) => a.adjustmentDays > 0).length;
+  const totalNegative = adjustments.filter((a) => a.adjustmentDays < 0).length;
+
   return (
-    <div className="space-y-6">
+    <div className="leave-adjustments-page">
       <PageHeader
         title="Leave Adjustments"
-        description="Authorized leave balance corrections and immutable transaction logs"
-        action={
-          <button
-            onClick={handleOpenModal}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition-colors text-sm"
-          >
-            <IconPlus size={16} />
-            New Adjustment
-          </button>
+        subtitle="Authorized employee leave balance corrections and immutable audit transaction logs"
+        badge={`${adjustments.length} Adjustments`}
+        actions={
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={fetchData}
+              disabled={loading}
+            >
+              <IconRefresh size={16} />
+              <span>Refresh</span>
+            </button>
+            {isHrAdmin && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleOpenModal}
+              >
+                <IconPlus size={16} />
+                <span>New Adjustment</span>
+              </button>
+            )}
+          </>
         }
       />
 
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
       <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />
 
-      {/* Filters bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col sm:flex-row gap-4 items-center justify-between">
-        <div className="flex flex-1 items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 max-w-sm">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-              <IconSearch size={16} />
-            </span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search employee, reason, ref..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-
-          <select
-            value={selectedEmployeeFilter}
-            onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
-            className="py-2 px-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-          >
-            <option value="ALL">All Employees</option>
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.firstName} {emp.lastName} ({emp.department?.name || 'No Dept'})
-              </option>
-            ))}
-          </select>
+      {/* KPI Stats */}
+      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+        <div className="stat-card">
+          <span className="stat-label">Total Adjustments</span>
+          <span className="stat-value">{adjustments.length}</span>
+          <span className="stat-helper">Balance transactions logged</span>
         </div>
-
-        <button
-          onClick={fetchData}
-          className="inline-flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          title="Refresh"
-        >
-          <IconRefresh size={16} />
-          Refresh
-        </button>
+        <div className="stat-card">
+          <span className="stat-label">Credit Additions (+)</span>
+          <span className="stat-value" style={{ color: 'var(--emerald-600, #059669)' }}>
+            {totalPositive}
+          </span>
+          <span className="stat-helper">Quota allocations granted</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Debit Deductions (-)</span>
+          <span className="stat-value" style={{ color: 'var(--rose-600, #e11d48)' }}>
+            {totalNegative}
+          </span>
+          <span className="stat-helper">Quota reductions applied</span>
+        </div>
       </div>
 
-      {/* Table Section */}
-      {loading ? (
-        <LoadingSpinner />
-      ) : filteredAdjustments.length === 0 ? (
-        <EmptyState
-          title="No Adjustments Found"
-          description="No leave adjustments match your search criteria. Create one using the button above."
-        />
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+      {/* Content Card with Toolbar and Table */}
+      <div className="content-card">
+        <div className="card-toolbar">
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
+            <div className="search-input-wrapper">
+              <IconSearch size={16} className="search-icon" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Search employee, reason, ref..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="search-clear-btn"
+                  onClick={() => setSearchTerm('')}
+                  aria-label="Clear search"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+
+            <select
+              value={selectedEmployeeFilter}
+              onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
+              className="toolbar-select"
+            >
+              <option value="ALL">All Employees</option>
+              {employees.map((emp) => {
+                const empDisplay = emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown';
+                const empCode = emp.employeeId ? ` (${emp.employeeId})` : '';
+                const dept = emp.department?.name ? ` - ${emp.department.name}` : '';
+                return (
+                  <option key={emp.id} value={emp.id}>
+                    {empDisplay}{empCode}{dept}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <span className="toolbar-count">
+            Showing {filteredAdjustments.length} of {adjustments.length}
+          </span>
+        </div>
+
+        {loading ? (
+          <LoadingSpinner message="Loading adjustments..." />
+        ) : filteredAdjustments.length === 0 ? (
+          <EmptyState
+            icon={<IconLeaves size={36} className="text-muted" />}
+            title="No Adjustments Found"
+            description={
+              searchTerm || selectedEmployeeFilter !== 'ALL'
+                ? 'No leave adjustments match your search criteria.'
+                : 'No manual balance corrections have been recorded.'
+            }
+            actionText={isHrAdmin && adjustments.length === 0 ? 'Create First Adjustment' : null}
+            onAction={isHrAdmin && adjustments.length === 0 ? handleOpenModal : null}
+          />
+        ) : (
+          <div className="table-responsive">
+            <table className="data-table">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-medium">
-                  <th className="py-3.5 px-4">ID</th>
-                  <th className="py-3.5 px-4">Employee</th>
-                  <th className="py-3.5 px-4">Leave Type</th>
-                  <th className="py-3.5 px-4">Adjustment</th>
-                  <th className="py-3.5 px-4">Reason</th>
-                  <th className="py-3.5 px-4">Reference</th>
-                  <th className="py-3.5 px-4">Timestamp</th>
+                <tr>
+                  <th style={{ width: '80px' }}>Ref #</th>
+                  <th>Employee</th>
+                  <th>Leave Type</th>
+                  <th>Adjustment</th>
+                  <th>Reason</th>
+                  <th>Reference</th>
+                  <th>Timestamp</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {filteredAdjustments.map((adj) => {
                   const isPositive = adj.adjustmentDays > 0;
+                  const empName = adj.employee?.name || `${adj.employee?.firstName || ''} ${adj.employee?.lastName || ''}`.trim() || 'Unknown Employee';
+                  const empCode = adj.employee?.employeeId;
+                  const deptName = adj.employee?.department?.name || 'General';
+
                   return (
-                    <tr key={adj.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-xs text-gray-500">#{adj.id}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar name={`${adj.employee?.firstName || ''} ${adj.employee?.lastName || ''}`} size="sm" />
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              {adj.employee?.firstName} {adj.employee?.lastName}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {adj.employee?.department?.name || 'General'}
+                    <tr key={adj.id}>
+                      <td>
+                        <span className="code-pill">#{adj.id}</span>
+                      </td>
+                      <td>
+                        <div className="employee-cell-avatar">
+                          <Avatar name={empName} size={32} />
+                          <div className="employee-info-cell">
+                            <span className="employee-primary-name">{empName}</span>
+                            <div className="cell-subtext-group">
+                              {empCode && <span className="code-pill-sm">{empCode}</span>}
+                              <span className="dept-tag-sm">{deptName}</span>
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-medium text-gray-800">{adj.leaveType?.name}</span>
+                      <td>
+                        <span className="policy-badge">{adj.leaveType?.name}</span>
                       </td>
-                      <td className="py-3.5 px-4">
+                      <td>
                         <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            isPositive
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-rose-50 text-rose-700 border border-rose-200'
-                          }`}
+                          className={`status-badge ${isPositive ? 'badge-approved' : 'badge-rejected'}`}
+                          style={{ fontWeight: 700 }}
                         >
-                          {isPositive ? `+${adj.adjustmentDays}` : adj.adjustmentDays} days
+                          {isPositive ? `+${adj.adjustmentDays}` : adj.adjustmentDays} Days
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-gray-700 max-w-xs truncate" title={adj.reason}>
-                        {adj.reason}
+                      <td>
+                        <span className="reason-text" title={adj.reason}>
+                          {adj.reason}
+                        </span>
                       </td>
-                      <td className="py-3.5 px-4 text-xs font-mono text-gray-500">
-                        {adj.reference || <span className="text-gray-400 italic">None</span>}
+                      <td>
+                        {adj.reference ? (
+                          <span className="code-pill-sm">{adj.reference}</span>
+                        ) : (
+                          <span className="text-muted" style={{ fontStyle: 'italic', fontSize: '0.75rem' }}>None</span>
+                        )}
                       </td>
-                      <td className="py-3.5 px-4 text-xs text-gray-500 whitespace-nowrap">
-                        {adj.createdAt ? new Date(adj.createdAt).toLocaleString() : 'N/A'}
+                      <td>
+                        <span className="timestamp-text">
+                          {adj.createdAt ? new Date(adj.createdAt).toLocaleString() : '—'}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -281,128 +354,152 @@ export default function LeaveAdjustments() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Modal for creating leave adjustment */}
       {showModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl relative">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Apply Leave Adjustment</h3>
-            <p className="text-xs text-gray-500 mb-4">
-              Balance adjustments directly alter entitlement and recalculate available days. Each adjustment is logged immutably.
-            </p>
-
-            <form onSubmit={handleSubmitAdjustment} className="space-y-4">
+        <div className="modal-backdrop">
+          <div className="modal-container" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                  Employee *
-                </label>
-                <select
-                  value={form.employeeId}
-                  onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  required
-                >
-                  <option value="">Select Employee</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.department?.name || 'No Dept'})
-                    </option>
-                  ))}
-                </select>
+                <h3 className="modal-title">Apply Leave Adjustment</h3>
+                <p className="modal-subtitle">
+                  Balance adjustments directly alter entitlement quotas and are immutably audited.
+                </p>
               </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={() => setShowModal(false)}
+                disabled={submitting}
+              >
+                &times;
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                  Leave Type *
-                </label>
-                <select
-                  value={form.leaveTypeId}
-                  onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  required
-                >
-                  <option value="">Select Leave Type</option>
-                  {leaveTypes.map((lt) => (
-                    <option key={lt.id} value={lt.id}>
-                      {lt.name} (Default: {lt.defaultDays} days)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Current balance preview */}
-              {form.employeeId && form.leaveTypeId && (
-                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs flex justify-between items-center text-indigo-900">
-                  <span>Current Balance Status:</span>
-                  {loadingBalance ? (
-                    <span className="italic text-gray-500">Checking...</span>
-                  ) : selectedBalance ? (
-                    <span className="font-semibold">
-                      Entitlement: {selectedBalance.entitlement} | Used: {selectedBalance.usedDays} | Remaining:{' '}
-                      <span className="text-indigo-700 font-bold">{selectedBalance.remainingBalance}</span>
-                    </span>
-                  ) : (
-                    <span className="text-gray-500">No active balance record yet (will initialize)</span>
-                  )}
+            <form onSubmit={handleSubmitAdjustment}>
+              <div className="modal-body">
+                <div className="form-group mb-3">
+                  <label className="form-label">Employee *</label>
+                  <select
+                    value={form.employeeId}
+                    onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
+                    className="form-control"
+                    required
+                  >
+                    <option value="">Select Employee</option>
+                    {employees.map((emp) => {
+                      const empDisplay = emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown';
+                      const empCode = emp.employeeId ? ` (${emp.employeeId})` : '';
+                      const dept = emp.department?.name ? ` - ${emp.department.name}` : '';
+                      return (
+                        <option key={emp.id} value={emp.id}>
+                          {empDisplay}{empCode}{dept}
+                        </option>
+                      );
+                    })}
+                  </select>
                 </div>
-              )}
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                  Adjustment Days * (e.g. +3 or -2)
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  value={form.adjustmentDays}
-                  onChange={(e) => setForm({ ...form, adjustmentDays: e.target.value })}
-                  placeholder="Enter number (positive to grant, negative to deduct)"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
+                <div className="form-group mb-3">
+                  <label className="form-label">Leave Type *</label>
+                  <select
+                    value={form.leaveTypeId}
+                    onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value })}
+                    className="form-control"
+                    required
+                  >
+                    <option value="">Select Leave Type</option>
+                    {leaveTypes.map((lt) => (
+                      <option key={lt.id} value={lt.id}>
+                        {lt.name} (Default: {lt.defaultDays} days)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Current balance preview */}
+                {form.employeeId && form.leaveTypeId && (
+                  <div
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: 'var(--primary-light)',
+                      border: '1px solid var(--primary-border)',
+                      fontSize: '0.8125rem',
+                      color: 'var(--primary)',
+                      marginBottom: '14px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <span>Current Quota Status:</span>
+                    {loadingBalance ? (
+                      <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>Checking...</span>
+                    ) : selectedBalance ? (
+                      <span style={{ fontWeight: 600 }}>
+                        Entitled: {selectedBalance.entitlement}d | Used: {selectedBalance.usedDays}d | Remaining:{' '}
+                        <strong>{selectedBalance.remainingBalance}d</strong>
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)' }}>No record yet (will initialize)</span>
+                    )}
+                  </div>
+                )}
+
+                <div className="form-group mb-3">
+                  <label className="form-label">Adjustment Days * (e.g. +3 or -2)</label>
+                  <input
+                    type="number"
+                    step="1"
+                    value={form.adjustmentDays}
+                    onChange={(e) => setForm({ ...form, adjustmentDays: e.target.value })}
+                    placeholder="Enter positive integer to credit, negative to deduct"
+                    className="form-control"
+                    required
+                  />
+                  <span className="form-help-text">Use positive values (e.g. 5) to add days, or negative (e.g. -2) to reduce.</span>
+                </div>
+
+                <div className="form-group mb-3">
+                  <label className="form-label">Reason *</label>
+                  <textarea
+                    rows="2"
+                    value={form.reason}
+                    onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                    placeholder="Reason for adjustment (required for accountability)"
+                    className="form-control"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Reference (Optional)</label>
+                  <input
+                    type="text"
+                    value={form.reference}
+                    onChange={(e) => setForm({ ...form, reference: e.target.value })}
+                    placeholder="HR Ticket / Approval ref (e.g. TICKET-1049)"
+                    className="form-control"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                  Reason *
-                </label>
-                <textarea
-                  rows="2"
-                  value={form.reason}
-                  onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                  placeholder="Reason for adjustment (required for accountability)"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                  Reference (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={form.reference}
-                  onChange={(e) => setForm({ ...form, reference: e.target.value })}
-                  placeholder="HR Ticket / Approval ref (e.g. TICKET-1049)"
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+              <div className="modal-actions">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="btn btn-secondary"
+                  disabled={submitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors disabled:opacity-50"
+                  className="btn btn-primary"
                 >
                   {submitting ? 'Applying...' : 'Apply Adjustment'}
                 </button>

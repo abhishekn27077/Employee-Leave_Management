@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   IconDashboard,
   IconDepartments,
@@ -12,19 +13,116 @@ import {
   IconX,
 } from './Icons';
 
-function Sidebar({ isOpen, onClose }) {
-  const navItems = [
-    { to: '/', label: 'Dashboard', icon: <IconDashboard size={18} />, end: true },
-    { to: '/departments', label: 'Departments', icon: <IconDepartments size={18} /> },
-    { to: '/employees', label: 'Employees', icon: <IconEmployees size={18} /> },
-    { to: '/leave-types', label: 'Leave Types', icon: <IconLeaveTypes size={18} /> },
-    { to: '/leaves', label: 'Leave Requests', icon: <IconLeaves size={18} />, end: true },
-    { to: '/balances', label: 'Leave Balances', icon: <IconLeaves size={18} /> },
-    { to: '/adjustments', label: 'Leave Adjustments', icon: <IconPlus size={18} /> },
-    { to: '/audit', label: 'Audit History', icon: <IconClock size={18} /> },
-    { to: '/holidays', label: 'Holiday Calendar', icon: <IconCalendar size={18} /> },
-    { to: '/availability', label: 'Team Availability', icon: <IconDashboard size={18} /> },
-  ];
+export default function Sidebar({ isOpen, onClose }) {
+  const { user, logout } = useAuth();
+  const role = user?.role;
+
+  const getSections = () => {
+    if (role === 'EMPLOYEE') {
+      return [
+        {
+          title: 'WORKSPACE',
+          items: [
+            { to: '/employee/dashboard', label: 'Dashboard', icon: <IconDashboard size={18} /> },
+            { to: '/leaves', label: 'My Leaves', icon: <IconLeaves size={18} /> },
+            { to: '/apply-leave', label: 'Apply Leave', icon: <IconPlus size={18} /> },
+            { to: '/balances', label: 'Leave Balance', icon: <IconCalendar size={18} /> },
+            { to: '/holidays', label: 'Holidays', icon: <IconCalendar size={18} /> },
+            { to: '/availability', label: 'Team Availability', icon: <IconDashboard size={18} /> },
+          ],
+        },
+        {
+          title: 'ACCOUNT',
+          items: [
+            { to: '/profile', label: 'My Profile', icon: <IconEmployees size={18} /> },
+          ],
+        },
+      ];
+    }
+
+    if (role === 'MANAGER') {
+      return [
+        {
+          title: 'WORKSPACE',
+          items: [
+            { to: '/manager/dashboard', label: 'Dashboard', icon: <IconDashboard size={18} /> },
+            { to: '/employees', label: 'My Team', icon: <IconEmployees size={18} /> },
+            { to: '/leaves?scope=approvals', label: 'Leave Approvals', icon: <IconClock size={18} /> },
+            { to: '/availability', label: 'Team Availability', icon: <IconDashboard size={18} /> },
+            { to: '/holidays', label: 'Holidays', icon: <IconCalendar size={18} /> },
+          ],
+        },
+        {
+          title: 'MY ACCOUNT',
+          items: [
+            { to: '/apply-leave', label: 'Apply Leave', icon: <IconPlus size={18} /> },
+            { to: '/leaves?scope=mine', label: 'My Leaves', icon: <IconLeaves size={18} /> },
+            { to: '/balances', label: 'Leave Balance', icon: <IconCalendar size={18} /> },
+            { to: '/profile', label: 'My Profile', icon: <IconEmployees size={18} /> },
+          ],
+        },
+      ];
+    }
+
+    if (role === 'HR_ADMIN') {
+      return [
+        {
+          title: 'WORKFORCE',
+          items: [
+            { to: '/admin/dashboard', label: 'Dashboard', icon: <IconDashboard size={18} /> },
+            { to: '/employees', label: 'Employees', icon: <IconEmployees size={18} /> },
+            { to: '/departments', label: 'Departments', icon: <IconDepartments size={18} /> },
+            { to: '/availability', label: 'Team Availability', icon: <IconDashboard size={18} /> },
+          ],
+        },
+        {
+          title: 'LEAVE MANAGEMENT',
+          items: [
+            { to: '/leaves', label: 'Leave Requests', icon: <IconLeaves size={18} /> },
+            { to: '/leave-types', label: 'Leave Types', icon: <IconLeaveTypes size={18} /> },
+            { to: '/leave-policies', label: 'Leave Policies', icon: <IconLeaveTypes size={18} /> },
+            { to: '/balances', label: 'Leave Balances', icon: <IconCalendar size={18} /> },
+            { to: '/adjustments', label: 'Leave Adjustments', icon: <IconPlus size={18} /> },
+            { to: '/holidays', label: 'Holidays', icon: <IconCalendar size={18} /> },
+          ],
+        },
+        {
+          title: 'GOVERNANCE',
+          items: [
+            { to: '/audit', label: 'Audit History', icon: <IconClock size={18} /> },
+          ],
+        },
+        {
+          title: 'ACCOUNT',
+          items: [
+            { to: '/profile', label: 'My Profile', icon: <IconEmployees size={18} /> },
+            {
+              action: logout,
+              label: 'Logout',
+              icon: (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              ),
+            },
+          ],
+        },
+      ];
+    }
+
+    return [
+      {
+        title: 'AUTHENTICATION',
+        items: [
+          { to: '/login', label: 'Sign In', icon: <IconDashboard size={18} /> },
+        ],
+      },
+    ];
+  };
+
+  const sections = getSections();
 
   return (
     <>
@@ -49,7 +147,9 @@ function Sidebar({ isOpen, onClose }) {
           </div>
           <div className="brand-info">
             <span className="brand-title">LeaveTrack</span>
-            <span className="brand-subtitle">Workforce HR</span>
+            <span className="brand-subtitle">
+              {role === 'HR_ADMIN' ? 'HR Administration' : role === 'MANAGER' ? 'Manager Portal' : 'Employee Portal'}
+            </span>
           </div>
           <button
             type="button"
@@ -61,51 +161,100 @@ function Sidebar({ isOpen, onClose }) {
           </button>
         </div>
 
-        <div className="sidebar-nav-section">
-          <span className="sidebar-section-title">Navigation</span>
-          <nav className="sidebar-nav">
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={onClose}
-                className={({ isActive }) =>
-                  `sidebar-nav-item ${isActive ? 'active' : ''}`
-                }
-              >
-                <span className="nav-item-icon">{item.icon}</span>
-                <span className="nav-item-label">{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </div>
-
-        <div className="sidebar-quick-action">
-          <NavLink
-            to="/apply-leave"
-            onClick={onClose}
-            className={({ isActive }) =>
-              `btn btn-primary sidebar-apply-btn ${isActive ? 'active' : ''}`
-            }
-          >
-            <IconPlus size={16} />
-            <span>Apply for Leave</span>
-          </NavLink>
-        </div>
-
-        <div className="sidebar-footer">
-          <div className="system-status-indicator">
-            <span className="status-ping" aria-hidden="true"></span>
-            <div className="status-text">
-              <span className="status-title">System Online</span>
-              <span className="status-desc">Spring Boot & MySQL</span>
+        <div className="sidebar-nav-container" style={{ flex: 1, overflowY: 'auto' }}>
+          {sections.map((sec, secIdx) => (
+            <div key={sec.title || secIdx} className="sidebar-nav-section" style={{ padding: '14px 12px 6px' }}>
+              <span className="sidebar-section-title">{sec.title}</span>
+              <nav className="sidebar-nav">
+                {sec.items.map((item, idx) =>
+                  item.action ? (
+                    <button
+                      key={`action-${item.label}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        item.action();
+                      }}
+                      className="sidebar-nav-item"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        width: '100%',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        color: 'inherit',
+                        font: 'inherit',
+                        display: 'flex',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <span className="nav-item-icon">{item.icon}</span>
+                      <span className="nav-item-label">{item.label}</span>
+                    </button>
+                  ) : (
+                    <NavLink
+                      key={`${item.to}-${item.label}-${idx}`}
+                      to={item.to}
+                      onClick={onClose}
+                      className={({ isActive }) =>
+                        `sidebar-nav-item ${isActive ? 'active' : ''}`
+                      }
+                    >
+                      <span className="nav-item-icon">{item.icon}</span>
+                      <span className="nav-item-label">{item.label}</span>
+                    </NavLink>
+                  )
+                )}
+              </nav>
             </div>
+          ))}
+        </div>
+
+        {role !== 'HR_ADMIN' && (
+          <div className="sidebar-quick-action" style={{ paddingTop: '10px' }}>
+            <NavLink
+              to="/apply-leave"
+              onClick={onClose}
+              className={({ isActive }) =>
+                `btn btn-primary sidebar-apply-btn ${isActive ? 'active' : ''}`
+              }
+            >
+              <IconPlus size={16} />
+              <span>Apply for Leave</span>
+            </NavLink>
+          </div>
+        )}
+
+        <div className="sidebar-footer" style={{ borderTop: '1px solid #1e293b', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#f8fafc', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {user?.employeeName || user?.username || 'User'}
+              </span>
+              <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                {role || 'EMPLOYEE'} &bull; {user?.departmentName || 'Staff'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={logout}
+              style={{
+                background: 'transparent',
+                border: '1px solid #334155',
+                color: '#cbd5e1',
+                borderRadius: '4px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title="Sign Out"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </aside>
     </>
   );
 }
-
-export default Sidebar;

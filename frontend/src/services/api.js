@@ -9,6 +9,37 @@ const api = axios.create({
   },
 });
 
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('leavetrack_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      if (!window.location.pathname.startsWith('/login')) {
+        localStorage.removeItem('leavetrack_token');
+        localStorage.removeItem('leavetrack_user');
+        window.dispatchEvent(new Event('auth:unauthorized'));
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+export const authApi = {
+  login: (credentials) => api.post('/auth/login', credentials),
+  getCurrentUser: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
+};
+
 export const extractErrorMessage = (error) => {
   if (error.response && error.response.data) {
     if (error.response.data.conflicts && Array.isArray(error.response.data.conflicts) && error.response.data.conflicts.length > 0) {
@@ -55,8 +86,9 @@ export const leaveTypeApi = {
 };
 
 export const leaveApi = {
-  getAll: () => api.get('/leaves'),
+  getAll: (params) => api.get('/leaves', { params }),
   getById: (id) => api.get(`/leaves/${id}`),
+  getByEmployee: (employeeId) => api.get(`/leaves/employee/${employeeId}`),
   apply: (data) => api.post('/leaves', data),
   approve: (id) => api.put(`/leaves/${id}/approve`),
   reject: (id) => api.put(`/leaves/${id}/reject`),

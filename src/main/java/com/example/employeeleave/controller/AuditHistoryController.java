@@ -11,7 +11,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/audit-history")
-@CrossOrigin(origins = "*")
 public class AuditHistoryController {
 
     private final AuditHistoryService auditHistoryService;

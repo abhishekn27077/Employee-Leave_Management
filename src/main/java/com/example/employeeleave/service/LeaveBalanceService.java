@@ -64,6 +64,10 @@ public class LeaveBalanceService {
         return leaveBalanceRepository.findByEmployeeId(employeeId);
     }
 
+    public List<LeaveBalance> getBalancesByDepartment(Long departmentId) {
+        return leaveBalanceRepository.findByEmployeeDepartmentId(departmentId);
+    }
+
     public LeaveBalance getBalanceById(Long id) {
         return leaveBalanceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Leave balance not found with id: " + id));

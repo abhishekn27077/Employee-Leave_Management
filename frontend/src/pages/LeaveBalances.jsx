@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { employeeApi, leaveTypeApi, departmentApi, leaveBalanceApi, leavePolicyApi, extractErrorMessage } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
@@ -14,7 +16,14 @@ import {
 } from '../components/Icons';
 
 function LeaveBalances() {
-  const [activeTab, setActiveTab] = useState('balances'); // 'balances' | 'policies'
+  const location = useLocation();
+  const { user } = useAuth();
+  const isEmployeeRole = user?.role === 'EMPLOYEE';
+  const isHrAdmin = user?.role === 'HR_ADMIN';
+
+  const [activeTab, setActiveTab] = useState(() => {
+    return location.pathname === '/leave-policies' ? 'policies' : 'balances';
+  });
   const [balances, setBalances] = useState([]);
   const [policies, setPolicies] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -50,25 +59,31 @@ function LeaveBalances() {
     setLoading(true);
     setError('');
     try {
-      const [balRes, polRes, empRes, ltRes, deptRes] = await Promise.all([
-        leaveBalanceApi.getAll(),
-        leavePolicyApi.getAll(),
-        employeeApi.getAll(),
-        leaveTypeApi.getAll(),
-        departmentApi.getAll(),
-      ]);
-      setBalances(balRes.data || []);
-      setPolicies(polRes.data || []);
-      setEmployees(empRes.data || []);
-      setLeaveTypes(ltRes.data || []);
-      setDepartments(deptRes.data || []);
+      if (isEmployeeRole) {
+        // Employee only needs their own balances
+        const balRes = await leaveBalanceApi.getAll();
+        setBalances(balRes.data || []);
+      } else {
+        const [balRes, polRes, empRes, ltRes, deptRes] = await Promise.all([
+          leaveBalanceApi.getAll(),
+          leavePolicyApi.getAll(),
+          employeeApi.getAll(),
+          leaveTypeApi.getAll(),
+          departmentApi.getAll(),
+        ]);
+        setBalances(balRes.data || []);
+        setPolicies(polRes.data || []);
+        setEmployees(empRes.data || []);
+        setLeaveTypes(ltRes.data || []);
+        setDepartments(deptRes.data || []);
 
-      if (empRes.data?.length > 0 && !balanceForm.employeeId) {
-        setBalanceForm((prev) => ({ ...prev, employeeId: String(empRes.data[0].id) }));
-      }
-      if (ltRes.data?.length > 0 && !balanceForm.leaveTypeId) {
-        setBalanceForm((prev) => ({ ...prev, leaveTypeId: String(ltRes.data[0].id) }));
-        setPolicyForm((prev) => ({ ...prev, leaveTypeId: String(ltRes.data[0].id) }));
+        if (empRes.data?.length > 0 && !balanceForm.employeeId) {
+          setBalanceForm((prev) => ({ ...prev, employeeId: String(empRes.data[0].id) }));
+        }
+        if (ltRes.data?.length > 0 && !balanceForm.leaveTypeId) {
+          setBalanceForm((prev) => ({ ...prev, leaveTypeId: String(ltRes.data[0].id) }));
+          setPolicyForm((prev) => ({ ...prev, leaveTypeId: String(ltRes.data[0].id) }));
+        }
       }
     } catch (err) {
       setError(extractErrorMessage(err));
@@ -144,8 +159,12 @@ function LeaveBalances() {
   return (
     <div className="leave-balances-page">
       <PageHeader
-        title="Leave Balances & Policy Framework"
-        subtitle="Audit employee time-off entitlement quotas, monitor approved consumption, and manage policy rules"
+        title={isEmployeeRole ? 'My Leave Balances' : 'Leave Balances & Policy Framework'}
+        subtitle={
+          isEmployeeRole
+            ? 'View your leave quotas, track approved days taken, and check remaining leave balances'
+            : 'Audit employee time-off entitlement quotas, monitor approved consumption, and manage policy rules'
+        }
         badge={`${balances.length} Balances`}
         actions={
           <>
@@ -158,24 +177,26 @@ function LeaveBalances() {
               <IconRefresh size={16} />
               <span>Refresh</span>
             </button>
-            {activeTab === 'balances' ? (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setShowBalanceModal(true)}
-              >
-                <IconPlus size={16} />
-                <span>Initialize Balance</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => setShowPolicyModal(true)}
-              >
-                <IconPlus size={16} />
-                <span>Add Policy Rule</span>
-              </button>
+            {isHrAdmin && (
+              activeTab === 'balances' ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowBalanceModal(true)}
+                >
+                  <IconPlus size={16} />
+                  <span>Initialize Balance</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => setShowPolicyModal(true)}
+                >
+                  <IconPlus size={16} />
+                  <span>Add Policy Rule</span>
+                </button>
+              )
             )}
           </>
         }
@@ -189,39 +210,41 @@ function LeaveBalances() {
         <div className="stat-card">
           <span className="stat-label">Total Allocated Quota</span>
           <span className="stat-value">{totalEntitled} <small style={{ fontSize: '1rem', fontWeight: 500 }}>Days</small></span>
-          <span className="stat-helper">Across all employee balances</span>
+          <span className="stat-helper">{isEmployeeRole ? 'Your total leave quota' : 'Across all employee balances'}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Approved & Consumed</span>
           <span className="stat-value" style={{ color: 'var(--amber-500, #f59e0b)' }}>{totalUsed} <small style={{ fontSize: '1rem', fontWeight: 500 }}>Days</small></span>
-          <span className="stat-helper">Deducted from active quotas</span>
+          <span className="stat-helper">{isEmployeeRole ? 'Used from your quotas' : 'Deducted from active quotas'}</span>
         </div>
         <div className="stat-card">
           <span className="stat-label">Available Balance</span>
           <span className="stat-value" style={{ color: 'var(--emerald-500, #10b981)' }}>{totalRemaining} <small style={{ fontSize: '1rem', fontWeight: 500 }}>Days</small></span>
-          <span className="stat-helper">Net remaining time-off pool</span>
+          <span className="stat-helper">{isEmployeeRole ? 'Your remaining time-off pool' : 'Net remaining time-off pool'}</span>
         </div>
       </div>
 
-      {/* View Switcher Tabs */}
-      <div className="filter-tabs-bar">
-        <button
-          type="button"
-          className={`filter-tab-btn ${activeTab === 'balances' ? 'active' : ''}`}
-          onClick={() => setActiveTab('balances')}
-        >
-          <span className="tab-label">Employee Balances</span>
-          <span className="tab-badge tab-badge-all">{balances.length}</span>
-        </button>
-        <button
-          type="button"
-          className={`filter-tab-btn ${activeTab === 'policies' ? 'active' : ''}`}
-          onClick={() => setActiveTab('policies')}
-        >
-          <span className="tab-label">Policy Governance</span>
-          <span className="tab-badge tab-badge-all">{policies.length}</span>
-        </button>
-      </div>
+      {/* View Switcher Tabs (Only for HR Admin) */}
+      {!isEmployeeRole && (
+        <div className="filter-tabs-bar">
+          <button
+            type="button"
+            className={`filter-tab-btn ${activeTab === 'balances' ? 'active' : ''}`}
+            onClick={() => setActiveTab('balances')}
+          >
+            <span className="tab-label">Employee Balances</span>
+            <span className="tab-badge tab-badge-all">{balances.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`filter-tab-btn ${activeTab === 'policies' ? 'active' : ''}`}
+            onClick={() => setActiveTab('policies')}
+          >
+            <span className="tab-label">Policy Governance</span>
+            <span className="tab-badge tab-badge-all">{policies.length}</span>
+          </button>
+        </div>
+      )}
 
       {/* Main Table Card */}
       <div className="content-card">
@@ -239,19 +262,21 @@ function LeaveBalances() {
                 />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <select
-                  className="form-select"
-                  style={{ width: 'auto', minWidth: '180px' }}
-                  value={selectedEmployeeFilter}
-                  onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
-                >
-                  <option value="ALL">All Employees</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={String(emp.id)}>
-                      {emp.name} ({emp.employeeId})
-                    </option>
-                  ))}
-                </select>
+                {!isEmployeeRole && (
+                  <select
+                    className="form-select"
+                    style={{ width: 'auto', minWidth: '180px' }}
+                    value={selectedEmployeeFilter}
+                    onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
+                  >
+                    <option value="ALL">All Employees</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={String(emp.id)}>
+                        {emp.name} ({emp.employeeId})
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <span className="toolbar-count">
                   {filteredBalances.length} Records
                 </span>
@@ -264,9 +289,13 @@ function LeaveBalances() {
               <EmptyState
                 icon={<IconLeaves size={36} className="text-muted" />}
                 title="No leave balance records"
-                description="Initialize employee balance quotas or submit leave applications to generate records automatically."
-                actionText="Initialize First Balance"
-                onAction={() => setShowBalanceModal(true)}
+                description={
+                  isEmployeeRole
+                    ? 'No balance records have been initialized for your account yet. Contact your HR administrator.'
+                    : 'Initialize employee balance quotas or submit leave applications to generate records automatically.'
+                }
+                actionText={isHrAdmin ? 'Initialize First Balance' : null}
+                onAction={isHrAdmin ? () => setShowBalanceModal(true) : null}
               />
             ) : (
               <div className="table-responsive">

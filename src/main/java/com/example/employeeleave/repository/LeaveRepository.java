@@ -15,6 +15,10 @@ public interface LeaveRepository extends JpaRepository<Leave, Long> {
 
     List<Leave> findByEmployeeId(Long employeeId);
 
+    List<Leave> findByEmployeeIdOrderByIdDesc(Long employeeId);
+
+    List<Leave> findByEmployeeDepartmentIdOrderByIdDesc(Long departmentId);
+
     @Query("SELECT l FROM Leave l WHERE l.employee.department.id = :departmentId " +
            "AND l.status = :status " +
            "AND l.startDate <= :date AND l.endDate >= :date")

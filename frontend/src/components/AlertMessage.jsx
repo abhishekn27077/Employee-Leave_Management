@@ -6,15 +6,21 @@ function AlertMessage({ type = 'info', message, onClose }) {
 
   const isError = type === 'error';
   const isSuccess = type === 'success';
+  const isWarning = type === 'warning';
+
+  const alertClass = isError
+    ? 'alert-danger'
+    : isSuccess
+    ? 'alert-success'
+    : isWarning
+    ? 'alert-warning'
+    : 'alert-info';
 
   return (
-    <div
-      className={`alert-banner ${isError ? 'alert-danger' : isSuccess ? 'alert-success' : 'alert-info'}`}
-      role="alert"
-    >
+    <div className={`alert-banner ${alertClass}`} role="alert">
       <div className="alert-content">
         <span className="alert-icon">
-          {isError ? (
+          {isError || isWarning ? (
             <IconAlertCircle size={18} />
           ) : isSuccess ? (
             <IconCheckCircle size={18} />

@@ -79,79 +79,118 @@ export default function AuditHistory() {
     );
   });
 
-  const getActionBadge = (action) => {
+  const getActionBadgeClass = (action) => {
     switch (action) {
       case 'LEAVE_APPROVED':
       case 'POLICY_CREATED':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        return 'status-badge badge-approved';
       case 'LEAVE_REJECTED':
       case 'POLICY_DELETED':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
+        return 'status-badge badge-rejected';
       case 'LEAVE_CANCELLED':
       case 'LEAVE_ADJUSTED':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'status-badge badge-pending';
       case 'LEAVE_SUBMITTED':
       case 'POLICY_UPDATED':
       default:
-        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
+        return 'status-badge badge-neutral';
     }
   };
 
+  // Stats calculation
+  const totalEvents = audits.length;
+  const leaveEvents = audits.filter((a) => a.entityType === 'LEAVE').length;
+  const adminEvents = audits.filter((a) => a.entityType !== 'LEAVE').length;
+
   return (
-    <div className="space-y-6">
+    <div className="audit-history-page">
       <PageHeader
         title="Audit History"
-        description="Immutable system-wide ledger of leave lifecycles, adjustments, and policy operations"
-        action={
+        subtitle="Immutable system-wide ledger of leave lifecycles, adjustments, and policy operations"
+        badge={`${audits.length} Records`}
+        actions={
           <button
+            type="button"
+            className="btn btn-secondary"
             onClick={fetchAudits}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            disabled={loading}
           >
             <IconRefresh size={16} />
-            Refresh
+            <span>Refresh</span>
           </button>
         }
       />
 
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
 
-      {/* Filter Toolbar */}
-      <div className="bg-white p-5 rounded-xl border border-gray-100 shadow-sm space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          {/* Search Box */}
-          <div className="relative">
-            <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-gray-400">
-              <IconSearch size={14} />
-            </span>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search keyword..."
-              className="w-full pl-8 pr-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            />
-          </div>
+      {/* KPI Stats */}
+      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
+        <div className="stat-card">
+          <span className="stat-label">Total Logged Events</span>
+          <span className="stat-value">{totalEvents}</span>
+          <span className="stat-helper">System operations recorded in ledger</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Leave Lifecycle Events</span>
+          <span className="stat-value" style={{ color: 'var(--primary-color, #4f46e5)' }}>
+            {leaveEvents}
+          </span>
+          <span className="stat-helper">Submissions, approvals & cancellations</span>
+        </div>
+        <div className="stat-card">
+          <span className="stat-label">Admin & Policy Events</span>
+          <span className="stat-value" style={{ color: 'var(--text-muted, #64748b)' }}>
+            {adminEvents}
+          </span>
+          <span className="stat-helper">Adjustments & policy modifications</span>
+        </div>
+      </div>
 
-          {/* Entity Type Filter */}
-          <div>
+      {/* Filter and Table Content Card */}
+      <div className="content-card">
+        <div className="card-toolbar" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+            {/* Search Box */}
+            <div className="search-input-wrapper" style={{ flex: '1 1 240px' }}>
+              <IconSearch size={16} className="search-icon" />
+              <input
+                type="text"
+                className="search-input"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search actor, description, action..."
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="search-clear-btn"
+                  onClick={() => setSearchTerm('')}
+                  aria-label="Clear search"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+
+            {/* Entity Type Filter */}
             <select
               value={entityTypeFilter}
               onChange={(e) => setEntityTypeFilter(e.target.value)}
-              className="w-full py-2 px-3 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+              className="form-control"
+              style={{ width: 'auto', minWidth: '150px' }}
             >
               <option value="">All Entities</option>
               <option value="LEAVE">Leave</option>
               <option value="LEAVE_ADJUSTMENT">Leave Adjustment</option>
               <option value="LEAVE_POLICY">Leave Policy</option>
             </select>
-          </div>
 
-          {/* Action Filter */}
-          <div>
+            {/* Action Filter */}
             <select
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
-              className="w-full py-2 px-3 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+              className="form-control"
+              style={{ width: 'auto', minWidth: '160px' }}
             >
               <option value="">All Actions</option>
               <option value="LEAVE_SUBMITTED">Leave Submitted</option>
@@ -163,131 +202,133 @@ export default function AuditHistory() {
               <option value="POLICY_UPDATED">Policy Updated</option>
               <option value="POLICY_DELETED">Policy Deleted</option>
             </select>
-          </div>
 
-          {/* Entity ID */}
-          <div>
+            {/* Entity ID */}
             <input
               type="number"
               value={entityIdFilter}
               onChange={(e) => setEntityIdFilter(e.target.value)}
               placeholder="Entity ID (e.g. 1)"
-              className="w-full py-2 px-3 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              className="form-control"
+              style={{ width: '130px' }}
             />
-          </div>
 
-          {/* Start Date */}
-          <div>
+            {/* Start Date */}
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full py-1.5 px-3 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+              className="form-control"
+              style={{ width: 'auto' }}
               title="Start Date"
             />
-          </div>
 
-          {/* End Date */}
-          <div>
+            {/* End Date */}
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full py-1.5 px-3 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white"
+              className="form-control"
+              style={{ width: 'auto' }}
               title="End Date"
             />
+
+            {(entityTypeFilter || actionFilter || entityIdFilter || startDate || endDate || searchTerm) && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={handleResetFilters}
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8125rem', color: 'var(--text-muted, #64748b)' }}>
+            <span>Showing {filteredAudits.length} of {audits.length} events</span>
           </div>
         </div>
 
-        {/* Clear Filters Button */}
-        {(entityTypeFilter || actionFilter || entityIdFilter || startDate || endDate || searchTerm) && (
-          <div className="flex justify-end">
-            <button
-              onClick={handleResetFilters}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
-            >
-              Reset Filters
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Audit Log Table */}
-      {loading ? (
-        <LoadingSpinner />
-      ) : filteredAudits.length === 0 ? (
-        <EmptyState
-          title="No Audit Records"
-          description="No system audit events match the specified criteria or actions have not yet occurred."
-        />
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+        {/* Audit Log Table */}
+        {loading ? (
+          <LoadingSpinner message="Loading audit history..." />
+        ) : filteredAudits.length === 0 ? (
+          <EmptyState
+            icon={<IconClock size={36} className="text-muted" />}
+            title="No Audit Records Found"
+            description="No system audit events match the specified search or filter criteria."
+          />
+        ) : (
+          <div className="table-responsive">
+            <table className="data-table">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100 text-gray-500 font-medium">
-                  <th className="py-3.5 px-4">Audit ID</th>
-                  <th className="py-3.5 px-4">Timestamp</th>
-                  <th className="py-3.5 px-4">Actor</th>
-                  <th className="py-3.5 px-4">Action</th>
-                  <th className="py-3.5 px-4">Entity</th>
-                  <th className="py-3.5 px-4">Values / State Change</th>
-                  <th className="py-3.5 px-4">Description</th>
+                <tr>
+                  <th style={{ width: '80px' }}>Audit #</th>
+                  <th>Timestamp</th>
+                  <th>Actor</th>
+                  <th>Action</th>
+                  <th>Entity</th>
+                  <th>Values / State Change</th>
+                  <th>Description</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody>
                 {filteredAudits.map((a) => (
-                  <tr key={a.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3.5 px-4 font-mono text-xs text-gray-500">#{a.id}</td>
-                    <td className="py-3.5 px-4 text-xs text-gray-600 whitespace-nowrap">
-                      {a.timestamp ? new Date(a.timestamp).toLocaleString() : 'N/A'}
+                  <tr key={a.id}>
+                    <td>
+                      <span className="code-pill">#{a.id}</span>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
+                    <td>
+                      <span className="timestamp-text">
+                        {a.timestamp ? new Date(a.timestamp).toLocaleString() : '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="code-pill-sm">
                         {a.actor || 'SYSTEM'}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${getActionBadge(
-                          a.action
-                        )}`}
-                      >
+                    <td>
+                      <span className={getActionBadgeClass(a.action)}>
                         {a.action}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <div className="text-xs font-semibold text-gray-900">{a.entityType}</div>
-                      <div className="text-xs font-mono text-gray-500">ID: {a.entityId}</div>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{a.entityType}</span>
+                        <span className="code-pill-sm">ID: {a.entityId}</span>
+                      </div>
                     </td>
-                    <td className="py-3.5 px-4 text-xs">
+                    <td>
                       {a.oldValue || a.newValue ? (
-                        <div className="space-y-0.5">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem' }}>
                           {a.oldValue && (
-                            <div className="text-gray-500">
-                              <span className="font-semibold text-rose-600">Old:</span> {a.oldValue}
+                            <div style={{ color: 'var(--rose-600, #e11d48)' }}>
+                              <span style={{ fontWeight: 600 }}>Old:</span> {a.oldValue}
                             </div>
                           )}
                           {a.newValue && (
-                            <div className="text-gray-900">
-                              <span className="font-semibold text-emerald-600">New:</span> {a.newValue}
+                            <div style={{ color: 'var(--emerald-600, #059669)' }}>
+                              <span style={{ fontWeight: 600 }}>New:</span> {a.newValue}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-400 italic">None</span>
+                        <span className="text-muted" style={{ fontStyle: 'italic', fontSize: '0.75rem' }}>None</span>
                       )}
                     </td>
-                    <td className="py-3.5 px-4 text-xs text-gray-700 max-w-sm" title={a.description}>
-                      {a.description || <span className="text-gray-400 italic">—</span>}
+                    <td>
+                      <span className="text-muted" style={{ fontSize: '0.8125rem' }} title={a.description}>
+                        {a.description || '—'}
+                      </span>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

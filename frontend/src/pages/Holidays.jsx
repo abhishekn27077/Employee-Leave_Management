@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { holidayApi, extractErrorMessage } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
@@ -15,6 +16,9 @@ import {
 } from '../components/Icons';
 
 function Holidays() {
+  const { user } = useAuth();
+  const isHrAdmin = user?.role === 'HR_ADMIN';
+
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -163,7 +167,7 @@ function Holidays() {
     <div className="holidays-page">
       <PageHeader
         title="Official Holiday Calendar"
-        subtitle="Manage statutory public holidays and corporate closures that automatically exempt employee leave balance deductions"
+        subtitle={isHrAdmin ? "Manage statutory public holidays and corporate closures that automatically exempt employee leave balance deductions" : "View statutory public holidays and corporate closures that exempt leave deductions"}
         badge={`${holidays.length} Holidays`}
         actions={
           <>
@@ -176,14 +180,16 @@ function Holidays() {
               <IconRefresh size={16} />
               <span>Refresh</span>
             </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={openCreateModal}
-            >
-              <IconPlus size={16} />
-              <span>Add Holiday</span>
-            </button>
+            {isHrAdmin && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={openCreateModal}
+              >
+                <IconPlus size={16} />
+                <span>Add Holiday</span>
+              </button>
+            )}
           </>
         }
       />
@@ -249,10 +255,10 @@ function Holidays() {
             description={
               searchTerm
                 ? `No holidays match "${searchTerm}".`
-                : 'Add official statutory public holidays so leave requests automatically exempt these days.'
+                : 'Official statutory public holidays and corporate closures are listed here.'
             }
-            actionText={holidays.length === 0 ? 'Add First Holiday' : null}
-            onAction={holidays.length === 0 ? openCreateModal : null}
+            actionText={holidays.length === 0 && isHrAdmin ? 'Add First Holiday' : null}
+            onAction={holidays.length === 0 && isHrAdmin ? openCreateModal : null}
           />
         ) : (
           <div className="table-responsive">
@@ -264,7 +270,7 @@ function Holidays() {
                   <th>Holiday Name</th>
                   <th>Description / Notes</th>
                   <th>Timeline Status</th>
-                  <th style={{ textAlign: 'center', width: '130px' }}>Actions</th>
+                  {isHrAdmin && <th style={{ textAlign: 'center', width: '130px' }}>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -303,26 +309,28 @@ function Holidays() {
                           </span>
                         )}
                       </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <div className="table-action-btns">
-                          <button
-                            type="button"
-                            className="btn-icon"
-                            onClick={() => openEditModal(h)}
-                            title="Edit holiday"
-                          >
-                            <IconEdit size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className="btn-icon btn-icon-danger"
-                            onClick={() => confirmDelete(h)}
-                            title="Delete holiday"
-                          >
-                            <IconTrash size={14} />
-                          </button>
-                        </div>
-                      </td>
+                      {isHrAdmin && (
+                        <td style={{ textAlign: 'center' }}>
+                          <div className="table-action-btns">
+                            <button
+                              type="button"
+                              className="btn-icon"
+                              onClick={() => openEditModal(h)}
+                              title="Edit holiday"
+                            >
+                              <IconEdit size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-icon btn-icon-danger"
+                              onClick={() => confirmDelete(h)}
+                              title="Delete holiday"
+                            >
+                              <IconTrash size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

@@ -1,6 +1,7 @@
 package com.example.employeeleave.controller;
 
 import com.example.employeeleave.dto.TeamAvailabilityResponseDTO;
+import com.example.employeeleave.security.SecurityService;
 import com.example.employeeleave.service.TeamAvailabilityService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -17,24 +18,31 @@ import java.time.LocalDate;
 public class TeamAvailabilityController {
 
     private final TeamAvailabilityService teamAvailabilityService;
+    private final SecurityService securityService;
 
-    public TeamAvailabilityController(TeamAvailabilityService teamAvailabilityService) {
+    public TeamAvailabilityController(TeamAvailabilityService teamAvailabilityService,
+                                      SecurityService securityService) {
         this.teamAvailabilityService = teamAvailabilityService;
+        this.securityService = securityService;
     }
 
     @GetMapping("/availability")
     public ResponseEntity<TeamAvailabilityResponseDTO> getAvailability(
             @RequestParam Long departmentId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        TeamAvailabilityResponseDTO result = teamAvailabilityService.getDepartmentAvailability(departmentId, date);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        securityService.validateDepartmentAvailabilityAccess(departmentId);
+        LocalDate targetDate = (date != null) ? date : LocalDate.now();
+        TeamAvailabilityResponseDTO result = teamAvailabilityService.getDepartmentAvailability(departmentId, targetDate);
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/departments/{departmentId}/availability")
     public ResponseEntity<TeamAvailabilityResponseDTO> getDepartmentAvailability(
             @PathVariable Long departmentId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        TeamAvailabilityResponseDTO result = teamAvailabilityService.getDepartmentAvailability(departmentId, date);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        securityService.validateDepartmentAvailabilityAccess(departmentId);
+        LocalDate targetDate = (date != null) ? date : LocalDate.now();
+        TeamAvailabilityResponseDTO result = teamAvailabilityService.getDepartmentAvailability(departmentId, targetDate);
         return ResponseEntity.ok(result);
     }
 }

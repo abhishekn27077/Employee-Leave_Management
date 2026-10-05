@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { departmentApi, availabilityApi, extractErrorMessage } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
@@ -16,8 +17,13 @@ import {
 } from '../components/Icons';
 
 function TeamAvailability() {
+  const { user } = useAuth();
+  const isHrAdmin = user?.role === 'HR_ADMIN';
+
   const [departments, setDepartments] = useState([]);
-  const [selectedDeptId, setSelectedDeptId] = useState('');
+  const [selectedDeptId, setSelectedDeptId] = useState(() => {
+    return !isHrAdmin && user?.departmentId ? String(user.departmentId) : '';
+  });
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split('T')[0]
   );
@@ -34,11 +40,17 @@ function TeamAvailability() {
       setError('');
       try {
         const res = await departmentApi.getAll();
-        const depts = res.data || [];
-        setDepartments(depts);
-        if (depts.length > 0) {
+        let depts = res.data || [];
+
+        // If not HR_ADMIN, only show the user's assigned department
+        if (!isHrAdmin && user?.departmentId) {
+          depts = depts.filter((d) => d.id === user.departmentId);
+          setSelectedDeptId(String(user.departmentId));
+        } else if (depts.length > 0 && !selectedDeptId) {
           setSelectedDeptId(String(depts[0].id));
         }
+
+        setDepartments(depts);
       } catch (err) {
         setError(extractErrorMessage(err));
       } finally {
@@ -47,7 +59,7 @@ function TeamAvailability() {
     };
 
     fetchDepartments();
-  }, []);
+  }, [isHrAdmin, user?.departmentId]);
 
   const fetchAvailability = async (deptId, dateStr) => {
     if (!deptId || !dateStr) return;

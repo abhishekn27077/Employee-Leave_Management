@@ -95,6 +95,14 @@ public class LeaveService {
         return leaveRepository.findAll();
     }
 
+    public List<Leave> getLeavesByEmployeeId(Long employeeId) {
+        return leaveRepository.findByEmployeeIdOrderByIdDesc(employeeId);
+    }
+
+    public List<Leave> getLeavesByDepartmentId(Long departmentId) {
+        return leaveRepository.findByEmployeeDepartmentIdOrderByIdDesc(departmentId);
+    }
+
     public Leave getLeaveById(Long id) {
         return leaveRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Leave not found with id: " + id));

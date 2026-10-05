@@ -4,10 +4,8 @@ import com.example.employeeleave.dto.LeaveBalanceRequestDTO;
 import com.example.employeeleave.entity.Department;
 import com.example.employeeleave.entity.Employee;
 import com.example.employeeleave.entity.LeaveBalance;
-import com.example.employeeleave.entity.LeavePolicy;
 import com.example.employeeleave.entity.LeaveType;
 import com.example.employeeleave.exception.BadRequestException;
-import com.example.employeeleave.exception.ResourceNotFoundException;
 import com.example.employeeleave.repository.EmployeeRepository;
 import com.example.employeeleave.repository.LeaveBalanceRepository;
 import com.example.employeeleave.repository.LeaveTypeRepository;
@@ -19,8 +17,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;

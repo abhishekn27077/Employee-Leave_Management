@@ -109,6 +109,11 @@ public class LeaveAdjustmentService {
         return leaveAdjustmentRepository.findByEmployeeIdOrderByCreatedAtDesc(employeeId);
     }
 
+    @Transactional(readOnly = true)
+    public List<LeaveAdjustment> getAdjustmentsByDepartment(Long departmentId) {
+        return leaveAdjustmentRepository.findByEmployeeDepartmentIdOrderByCreatedAtDesc(departmentId);
+    }
+
     private void validateRequest(LeaveAdjustmentRequestDTO request) {
         if (request == null) {
             throw new BadRequestException("Leave adjustment request body cannot be null");
