@@ -3,6 +3,8 @@ package com.example.employeeleave.security;
 import com.example.employeeleave.entity.UserAccount;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +12,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,15 +20,24 @@ import java.util.Map;
 @Component
 public class JwtTokenProvider {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
+
     private final String secretKey;
     private final long expirationMs;
     private final ObjectMapper objectMapper;
 
     public JwtTokenProvider(
-            @Value("${jwt.secret:EnterpriseEmployeeLeaveManagementSecretKeyMustBeAtLeast256BitsLongForSecurity2026}") String secretKey,
+            @Value("${jwt.secret:}") String secretKey,
             @Value("${jwt.expiration-ms:86400000}") long expirationMs,
             ObjectMapper objectMapper) {
-        this.secretKey = secretKey;
+        if (secretKey != null && !secretKey.trim().isEmpty()) {
+            this.secretKey = secretKey.trim();
+        } else {
+            byte[] randomBytes = new byte[32];
+            new SecureRandom().nextBytes(randomBytes);
+            this.secretKey = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+            log.info("No JWT_SECRET environment variable or property configured. Generated an ephemeral secure 256-bit key for this application session.");
+        }
         this.expirationMs = expirationMs;
         this.objectMapper = objectMapper != null ? objectMapper : new ObjectMapper();
     }

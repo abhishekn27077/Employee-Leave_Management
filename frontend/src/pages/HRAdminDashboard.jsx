@@ -94,7 +94,7 @@ export default function HRAdminDashboard() {
       });
     }
     return map;
-  }, [overview?.detectedConflicts]);
+  }, [overview]);
 
   // Identify low availability departments (< 80%)
   const lowAvailabilityDepts = useMemo(() => {
@@ -102,7 +102,7 @@ export default function HRAdminDashboard() {
     return overview.departmentAvailability.filter(
       (dept) => dept.totalEmployees > 0 && dept.availabilityPercentage < 80
     );
-  }, [overview?.departmentAvailability]);
+  }, [overview]);
 
   // Open Detailed Review Modal
   const openReviewModal = async (leave) => {

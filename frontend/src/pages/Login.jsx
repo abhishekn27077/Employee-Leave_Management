@@ -31,11 +31,24 @@ export default function Login() {
 
   const from = location.state?.from?.pathname;
 
+  const getSafeRedirectTarget = (role) => {
+    if (!from || from === '/' || from === '/login' || from.includes('dashboard')) {
+      return getRoleDashboard(role);
+    }
+    const adminOnlyRoutes = ['/departments', '/leave-types', '/leave-policies', '/adjustments', '/leave-adjustments', '/audit', '/audit-history'];
+    if (adminOnlyRoutes.some((r) => from.startsWith(r)) && role !== 'HR_ADMIN') {
+      return getRoleDashboard(role);
+    }
+    if (from.startsWith('/employees') && role === 'EMPLOYEE') {
+      return getRoleDashboard(role);
+    }
+    return from;
+  };
+
   // Prevent authenticated user from viewing login page unnecessarily
   React.useEffect(() => {
     if (isAuthenticated && user?.role) {
-      const target = from && from !== '/' && from !== '/login' ? from : getRoleDashboard(user.role);
-      navigate(target, { replace: true });
+      navigate(getSafeRedirectTarget(user.role), { replace: true });
     }
   }, [isAuthenticated, user, navigate, from]);
 
@@ -52,8 +65,7 @@ export default function Login() {
     try {
       const resData = await login(usernameOrEmail.trim(), password);
       const userRole = resData.user?.role;
-      const target = from && from !== '/' && from !== '/login' ? from : getRoleDashboard(userRole);
-      navigate(target, { replace: true });
+      navigate(getSafeRedirectTarget(userRole), { replace: true });
     } catch (err) {
       setError(extractErrorMessage(err));
     } finally {

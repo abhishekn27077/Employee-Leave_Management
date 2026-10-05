@@ -25,7 +25,7 @@ Authentication is implemented as a stateless, token-based security layer securin
 - **Login (`POST /api/auth/login`)**: Accepts `usernameOrEmail` and `password`. Returns a signed JWT token along with user profile metadata.
 - **Password Security**: Passwords are encrypted using Spring Security's `BCryptPasswordEncoder` with salt. No plaintext passwords or password hashes are ever exposed through API responses.
 - **Current User Identity (`GET /api/auth/me`)**: Validates the Bearer token in the `Authorization` header and returns the authenticated user's ID, username, role, employee code, name, designation, and department.
-- **Logout (`POST /api/auth/logout`)**: Clears client-side session tokens and logs an audit trail event.
+- **Logout (`POST /api/auth/logout`)**: Stateless endpoint acknowledging session termination. The client discards the JWT token and clears cached user state from browser storage. (Stateless JWT authentication — no server-side token revocation or session store).
 - **Protected Routes**: Frontend navigation is guarded by `ProtectedRoute.jsx`, redirecting unauthenticated visitors to `/login` and restricting pages based on the user's role.
 
 ### Role Model
@@ -84,7 +84,7 @@ The system enforces three distinct authorization roles:
 | **Spring Data JPA** | Managed | Data access abstraction and repository layer |
 | **Hibernate / JPA** | 7.4.5.Final | Object-Relational Mapping (ORM) and schema management |
 | **Spring Security Crypto** | Managed | BCrypt password hashing |
-| **JJWT (Java JWT)** | 0.11.5 | JSON Web Token generation and validation |
+| **Java Cryptography (`javax.crypto.Mac`)** | Standard (Java 21) | HMAC-SHA256 stateless JWT generation and verification with Jackson |
 | **Jakarta Validation** | Managed | DTO bean validation constraints |
 | **MySQL** | 8.0+ | Relational database storage (Connector/J 8.0.33) |
 | **Apache Tomcat** | 11.0.24 | Embedded servlet container |
@@ -100,7 +100,7 @@ The system enforces three distinct authorization roles:
 | **Oxlint** | 1.81.0 | Frontend JavaScript/JSX linter |
 
 ### Testing & Tools
-- **JUnit 5 / Mockito**: Backend unit and service test suites (140 automated tests).
+- **JUnit 5 / Mockito**: Backend unit and service test suites (146 automated tests).
 - **Maven**: Build management and dependency resolution (`mvnw.cmd` wrapper included).
 - **Node.js & npm**: Node 18+ and npm 9+ frontend runtime.
 
@@ -157,7 +157,7 @@ employee-leave-management/
 │   │   └── resources/
 │   │       ├── application.properties    # Application configuration
 │   │       └── application-example.properties
-│   └── test/                             # 140 Automated unit and integration tests
+│   └── test/                             # 146 Automated unit and integration tests
 └── frontend/
     ├── package.json                      # Frontend dependencies and scripts
     ├── vite.config.js                    # Vite configuration
@@ -252,7 +252,7 @@ The system evaluates 5 distinct conflict conditions during pre-submission checks
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/auth/login` | Public | Authenticates user; returns JWT token and user details. |
 | `GET` | `/api/auth/me` | Authenticated | Returns current authenticated user metadata. |
-| `POST` | `/api/auth/logout` | Authenticated | Logs out user and records audit trail. |
+| `POST` | `/api/auth/logout` | Public / Authenticated | Acknowledges logout; client clears stored JWT and cached session. |
 
 ### Employee Endpoints
 | Method | Endpoint | Access Level | Description |
@@ -321,8 +321,8 @@ The application uses standard property placeholders in `src/main/resources/appli
 | `spring.datasource.username` | `DB_USERNAME` | `root` | Database user |
 | `spring.datasource.password` | `DB_PASSWORD` | *(empty string)* | Database password |
 | `server.port` | `SERVER_PORT` | `8080` | Backend HTTP port |
-| `jwt.secret` | `JWT_SECRET` | *(configured secret)* | HS256 JWT HMAC key |
-| `jwt.expiration` | `JWT_EXPIRATION` | `86400000` | Token validity in ms (24h) |
+| `jwt.secret` | `JWT_SECRET` | *(ephemeral 256-bit key)* | HS256 JWT HMAC key (auto-generated in-memory if unconfigured) |
+| `jwt.expiration-ms` | `JWT_EXPIRATION_MS` | `86400000` | Token validity in milliseconds (24h) |
 
 ---
 
@@ -411,7 +411,7 @@ The system automatically initializes 3 demo user accounts:
 ## 14. Testing & Verification
 
 ### Run Backend Unit & Service Tests
-Executes 140 automated tests verifying business services, security rules, and conflict detection:
+Executes 147 automated tests verifying business services, security rules, and conflict detection:
 ```powershell
 .\mvnw.cmd test
 ```
@@ -441,7 +441,7 @@ npm run lint
 - **Stateless Sessions**: JWT tokens validated on every request; no server-side HTTP session storage required.
 - **Role Guards**: Backend endpoints enforce access via `SecurityService` and method security; frontend routes prevent unauthorized navigation.
 - **SQL Injection Prevention**: Parameterized queries and Spring Data JPA criteria queries prevent SQL injection.
-- **Audit Logging**: All state mutations (leaves, approvals, rejections, cancellations, adjustments) generate audit records.
+- **Audit Logging**: All state mutations (leaves, approvals, rejections, cancellations, adjustments) generate audit records attributing the authenticated user (or SYSTEM for automated tasks) as the actor.
 - **Repository Hygiene**: Local secrets and build artifacts are strictly ignored via `.gitignore`.
 
 ---

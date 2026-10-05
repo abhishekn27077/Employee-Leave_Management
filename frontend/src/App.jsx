@@ -15,6 +15,7 @@ import LeaveTypes from './pages/LeaveTypes';
 import Leaves from './pages/Leaves';
 import ApplyLeave from './pages/ApplyLeave';
 import LeaveBalances from './pages/LeaveBalances';
+import LeavePolicies from './pages/LeavePolicies';
 import Holidays from './pages/Holidays';
 import TeamAvailability from './pages/TeamAvailability';
 import LeaveAdjustments from './pages/LeaveAdjustments';
@@ -93,6 +94,7 @@ function App() {
             <Route element={<AppLayout />}>
               {/* Root redirect to specific role dashboard */}
               <Route path="/" element={<RoleDashboardRedirect />} />
+              <Route path="/dashboard" element={<RoleDashboardRedirect />} />
 
               {/* Role-Specific Dashboards */}
               <Route element={<ProtectedRoute allowedRoles={['EMPLOYEE']} />}>
@@ -126,9 +128,11 @@ function App() {
               <Route element={<ProtectedRoute allowedRoles={['HR_ADMIN']} />}>
                 <Route path="/departments" element={<Departments />} />
                 <Route path="/leave-types" element={<LeaveTypes />} />
-                <Route path="/leave-policies" element={<LeaveBalances />} />
+                <Route path="/leave-policies" element={<LeavePolicies />} />
                 <Route path="/adjustments" element={<LeaveAdjustments />} />
+                <Route path="/leave-adjustments" element={<LeaveAdjustments />} />
                 <Route path="/audit" element={<AuditHistory />} />
+                <Route path="/audit-history" element={<AuditHistory />} />
               </Route>
             </Route>
           </Route>

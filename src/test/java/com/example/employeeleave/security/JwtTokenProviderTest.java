@@ -72,4 +72,22 @@ class JwtTokenProviderTest {
         String expiredToken = expiredProvider.generateToken(testUser);
         assertFalse(expiredProvider.validateToken(expiredToken));
     }
+
+    @Test
+    @DisplayName("Ephemeral key generated when secret is empty or null operates properly")
+    void testEphemeralKeyGenerationWhenSecretEmpty() {
+        JwtTokenProvider autoKeyProvider = new JwtTokenProvider(
+                "",
+                3600000L,
+                new ObjectMapper()
+        );
+
+        String token = autoKeyProvider.generateToken(testUser);
+        assertNotNull(token);
+        assertTrue(autoKeyProvider.validateToken(token));
+        assertEquals("alice", autoKeyProvider.getUsernameFromToken(token));
+
+        // Token generated with one ephemeral key should be rejected by another provider with a different key
+        assertFalse(jwtTokenProvider.validateToken(token));
+    }
 }

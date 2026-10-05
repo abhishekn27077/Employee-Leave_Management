@@ -25,8 +25,6 @@ import {
   IconRefresh,
   IconCalendar,
   IconClock,
-  IconCheckCircle,
-  IconAlertCircle,
   IconInfo,
 } from '../components/Icons';
 

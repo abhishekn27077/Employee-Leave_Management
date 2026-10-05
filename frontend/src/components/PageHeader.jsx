@@ -11,7 +11,7 @@ function PageHeader({ title, subtitle, description, badge, actions, action, chil
           <h1 className="page-title">{title}</h1>
           {badge && <span className="page-title-badge">{badge}</span>}
         </div>
-        {displaySubtitle && <p className="page-subtitle">{displaySubtitle}</p>}
+        {displaySubtitle && <div className="page-subtitle">{displaySubtitle}</div>}
       </div>
       {displayActions && <div className="page-header-actions">{displayActions}</div>}
       {children}

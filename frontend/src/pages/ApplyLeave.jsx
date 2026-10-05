@@ -14,14 +14,9 @@ import PageHeader from '../components/PageHeader';
 import Avatar from '../components/Avatar';
 import {
   IconCalendar,
-  IconPlus,
-  IconClock,
-  IconInfo,
   IconCheckCircle,
   IconAlertCircle,
   IconCheck,
-  IconEmployees,
-  IconLeaves,
 } from '../components/Icons';
 
 export default function ApplyLeave() {
@@ -51,6 +46,16 @@ export default function ApplyLeave() {
     endDate: '',
     reason: '',
   });
+
+  const fetchBalances = async (empId) => {
+    if (!empId) return;
+    try {
+      const res = await leaveBalanceApi.getByEmployee(empId);
+      setEmployeeBalances(res.data || []);
+    } catch {
+      // Non-blocking
+    }
+  };
 
   // Load employee and leave type options
   useEffect(() => {
@@ -93,16 +98,6 @@ export default function ApplyLeave() {
 
     fetchOptions();
   }, [isEmployeeRole, user?.employeeId]);
-
-  const fetchBalances = async (empId) => {
-    if (!empId) return;
-    try {
-      const res = await leaveBalanceApi.getByEmployee(empId);
-      setEmployeeBalances(res.data || []);
-    } catch {
-      // Non-blocking
-    }
-  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -522,8 +517,9 @@ export default function ApplyLeave() {
               </Link>
               <button
                 type="submit"
+                id="review-leave-btn"
                 className="btn btn-primary"
-                disabled={submitting || (evaluationResult && !evaluationResult.canApprove)}
+                disabled={submitting || (evaluationResult && !evaluationResult.canApprove) || !!evaluationError}
               >
                 <IconCheck size={16} />
                 <span>Review Leave Request &rarr;</span>

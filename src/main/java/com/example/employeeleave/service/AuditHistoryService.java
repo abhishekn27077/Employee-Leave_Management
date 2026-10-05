@@ -1,8 +1,10 @@
 package com.example.employeeleave.service;
 
 import com.example.employeeleave.entity.AuditHistory;
+import com.example.employeeleave.entity.UserAccount;
 import com.example.employeeleave.exception.ResourceNotFoundException;
 import com.example.employeeleave.repository.AuditHistoryRepository;
+import com.example.employeeleave.security.SecurityContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,7 +22,15 @@ public class AuditHistoryService {
         this.auditHistoryRepository = auditHistoryRepository;
     }
 
-    @Transactional
+    public String resolveCurrentActor() {
+        UserAccount currentUser = SecurityContext.getCurrentUser();
+        if (currentUser != null && currentUser.getUsername() != null && !currentUser.getUsername().trim().isEmpty()) {
+            return currentUser.getUsername().trim();
+        }
+        return "SYSTEM";
+    }
+
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public AuditHistory recordAudit(String actor,
                                     String action,
                                     String entityType,
@@ -28,7 +38,12 @@ public class AuditHistoryService {
                                     String oldValue,
                                     String newValue,
                                     String description) {
-        String safeActor = (actor != null && !actor.trim().isEmpty()) ? actor.trim() : "SYSTEM";
+        String safeActor;
+        if (actor != null && !actor.trim().isEmpty() && !"SYSTEM".equalsIgnoreCase(actor.trim())) {
+            safeActor = actor.trim();
+        } else {
+            safeActor = resolveCurrentActor();
+        }
         AuditHistory audit = new AuditHistory(
                 safeActor,
                 action,
@@ -42,14 +57,14 @@ public class AuditHistoryService {
         return auditHistoryRepository.save(audit);
     }
 
-    @Transactional
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public AuditHistory recordAudit(String action,
                                     String entityType,
                                     Long entityId,
                                     String oldValue,
                                     String newValue,
                                     String description) {
-        return recordAudit("SYSTEM", action, entityType, entityId, oldValue, newValue, description);
+        return recordAudit(resolveCurrentActor(), action, entityType, entityId, oldValue, newValue, description);
     }
 
     @Transactional(readOnly = true)

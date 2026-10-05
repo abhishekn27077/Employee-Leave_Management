@@ -9,6 +9,8 @@ import com.example.employeeleave.exception.ResourceNotFoundException;
 import com.example.employeeleave.repository.DepartmentRepository;
 import com.example.employeeleave.repository.LeavePolicyRepository;
 import com.example.employeeleave.repository.LeaveTypeRepository;
+import com.example.employeeleave.entity.UserAccount;
+import com.example.employeeleave.security.SecurityContext;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -64,7 +66,7 @@ public class LeavePolicyService {
         LeavePolicy savedPolicy = leavePolicyRepository.save(policy);
 
         auditHistoryService.recordAudit(
-                "SYSTEM",
+                resolveActor(),
                 "POLICY_CREATED",
                 "LEAVE_POLICY",
                 savedPolicy.getId(),
@@ -108,7 +110,7 @@ public class LeavePolicyService {
         LeavePolicy updatedPolicy = leavePolicyRepository.save(policy);
 
         auditHistoryService.recordAudit(
-                "SYSTEM",
+                resolveActor(),
                 "POLICY_UPDATED",
                 "LEAVE_POLICY",
                 updatedPolicy.getId(),
@@ -125,7 +127,7 @@ public class LeavePolicyService {
         leavePolicyRepository.delete(policy);
 
         auditHistoryService.recordAudit(
-                "SYSTEM",
+                resolveActor(),
                 "POLICY_DELETED",
                 "LEAVE_POLICY",
                 policy.getId(),
@@ -133,6 +135,14 @@ public class LeavePolicyService {
                 null,
                 "Policy deleted for " + policy.getLeaveType().getName()
         );
+    }
+
+    private String resolveActor() {
+        UserAccount currentUser = SecurityContext.getCurrentUser();
+        if (currentUser != null && currentUser.getUsername() != null && !currentUser.getUsername().trim().isEmpty()) {
+            return currentUser.getUsername().trim();
+        }
+        return "SYSTEM";
     }
 
     public Optional<LeavePolicy> findApplicablePolicy(Long leaveTypeId, Long departmentId) {

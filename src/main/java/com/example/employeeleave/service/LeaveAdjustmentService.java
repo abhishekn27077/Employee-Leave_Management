@@ -11,6 +11,8 @@ import com.example.employeeleave.repository.EmployeeRepository;
 import com.example.employeeleave.repository.LeaveAdjustmentRepository;
 import com.example.employeeleave.repository.LeaveBalanceRepository;
 import com.example.employeeleave.repository.LeaveTypeRepository;
+import com.example.employeeleave.entity.UserAccount;
+import com.example.employeeleave.security.SecurityContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,7 +78,7 @@ public class LeaveAdjustmentService {
         );
         LeaveAdjustment savedAdjustment = leaveAdjustmentRepository.save(adjustment);
 
-        String actor = (request.getActor() != null && !request.getActor().trim().isEmpty()) ? request.getActor().trim() : "SYSTEM";
+        String actor = resolveActor(request.getActor());
         auditHistoryService.recordAudit(
                 actor,
                 "LEAVE_ADJUSTED",
@@ -88,6 +90,17 @@ public class LeaveAdjustmentService {
         );
 
         return savedAdjustment;
+    }
+
+    private String resolveActor(String requestedActor) {
+        if (requestedActor != null && !requestedActor.trim().isEmpty()) {
+            return requestedActor.trim();
+        }
+        UserAccount currentUser = SecurityContext.getCurrentUser();
+        if (currentUser != null && currentUser.getUsername() != null && !currentUser.getUsername().trim().isEmpty()) {
+            return currentUser.getUsername().trim();
+        }
+        return "SYSTEM";
     }
 
     @Transactional(readOnly = true)

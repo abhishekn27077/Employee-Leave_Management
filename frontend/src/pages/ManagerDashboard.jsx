@@ -23,7 +23,6 @@ import {
   IconX,
   IconAlertCircle,
   IconChevronRight,
-  IconLeaves,
   IconEmployees,
 } from '../components/Icons';
 

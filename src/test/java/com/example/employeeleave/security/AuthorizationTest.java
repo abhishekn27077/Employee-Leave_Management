@@ -256,7 +256,18 @@ class AuthorizationTest {
 
             ForbiddenException ex = assertThrows(ForbiddenException.class,
                     () -> securityService.validateCanApproveOrReject(leave));
-            assertTrue(ex.getMessage().contains("Employees are not authorized to approve"));
+            assertTrue(ex.getMessage().contains("Employees are not authorized to approve or reject"));
+        }
+
+        @Test
+        @DisplayName("Employee attempting to reject another employee leave -> Rejected with 403")
+        void testEmployeeRejectingLeaveRejected() {
+            SecurityContext.setCurrentUser(userAliceEmployee);
+            Leave leave = new Leave(empBob, null, LocalDate.now(), LocalDate.now().plusDays(1), "Vacation", LeaveStatus.PENDING);
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> securityService.validateCanApproveOrReject(leave));
+            assertTrue(ex.getMessage().contains("Employees are not authorized to approve or reject"));
         }
 
         @Test

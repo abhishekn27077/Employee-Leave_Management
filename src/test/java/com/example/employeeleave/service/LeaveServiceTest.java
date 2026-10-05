@@ -15,6 +15,10 @@ import com.example.employeeleave.exception.ResourceNotFoundException;
 import com.example.employeeleave.repository.EmployeeRepository;
 import com.example.employeeleave.repository.LeaveRepository;
 import com.example.employeeleave.repository.LeaveTypeRepository;
+import com.example.employeeleave.entity.UserAccount;
+import com.example.employeeleave.entity.UserRole;
+import com.example.employeeleave.security.SecurityContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -107,6 +111,9 @@ class LeaveServiceTest {
     void testApplyLeave_Success() {
         when(employeeRepository.findById(10L)).thenReturn(Optional.of(employee));
         when(leaveTypeRepository.findById(5L)).thenReturn(Optional.of(leaveType));
+        LeaveConflictResponseDTO evaluation = new LeaveConflictResponseDTO();
+        evaluation.setCanApprove(true);
+        when(leaveConflictService.evaluateRequest(any(LeaveRequestDTO.class), any())).thenReturn(evaluation);
         when(leaveRepository.save(any(Leave.class))).thenReturn(leave);
 
         Leave applied = leaveService.applyLeave(requestDTO);
@@ -116,6 +123,20 @@ class LeaveServiceTest {
         assertNotNull(applied.getAppliedAt());
         assertEquals("Personal work", applied.getReason());
         verify(leaveRepository, times(1)).save(any(Leave.class));
+    }
+
+    @Test
+    void testApplyLeave_ConflictDetected_ThrowsLeaveConflictException() {
+        when(employeeRepository.findById(10L)).thenReturn(Optional.of(employee));
+        when(leaveTypeRepository.findById(5L)).thenReturn(Optional.of(leaveType));
+        LeaveConflictResponseDTO evaluation = new LeaveConflictResponseDTO();
+        evaluation.setCanApprove(false);
+        evaluation.setConflicts(List.of(new ConflictDetailDTO(ConflictType.OVERLAPPING_LEAVE, "Overlapping leave found", true)));
+        when(leaveConflictService.evaluateRequest(any(LeaveRequestDTO.class), any())).thenReturn(evaluation);
+
+        LeaveConflictException ex = assertThrows(LeaveConflictException.class, () -> leaveService.applyLeave(requestDTO));
+        assertTrue(ex.getMessage().contains("Overlapping leave found"));
+        verify(leaveRepository, never()).save(any(Leave.class));
     }
 
     @Test
@@ -243,6 +264,15 @@ class LeaveServiceTest {
         assertEquals(LeaveStatus.PENDING, leave.getStatus());
         verify(leaveBalanceService, never()).deductApprovedDays(any(), any(), anyInt());
         verify(leaveRepository, never()).save(any(Leave.class));
+        verify(auditHistoryService, times(1)).recordAudit(
+                anyString(),
+                eq("LEAVE_APPROVAL_BLOCKED"),
+                eq("LEAVE"),
+                eq(100L),
+                eq("PENDING"),
+                eq("PENDING"),
+                contains("Insufficient leave balance")
+        );
     }
 
     @Test
@@ -321,6 +351,9 @@ class LeaveServiceTest {
     void testApplyLeave_InsufficientBalance_ThrowsBadRequestException() {
         when(employeeRepository.findById(10L)).thenReturn(Optional.of(employee));
         when(leaveTypeRepository.findById(5L)).thenReturn(Optional.of(leaveType));
+        LeaveConflictResponseDTO evaluation = new LeaveConflictResponseDTO();
+        evaluation.setCanApprove(true);
+        when(leaveConflictService.evaluateRequest(any(LeaveRequestDTO.class), any())).thenReturn(evaluation);
         doThrow(new BadRequestException("Insufficient leave balance"))
                 .when(leaveBalanceService).checkBalance(any(Employee.class), any(LeaveType.class), anyInt());
 
@@ -341,5 +374,105 @@ class LeaveServiceTest {
         assertNotNull(approved);
         assertEquals(LeaveStatus.APPROVED, approved.getStatus());
         verify(leaveBalanceService, times(1)).deductApprovedDays(eq(employee), eq(leaveType), eq(3));
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContext.clear();
+    }
+
+    @Test
+    void testApproveLeave_RecordsAuthenticatedManagerAsActor() {
+        UserAccount managerUser = new UserAccount("manager_dave", "dave@example.com", "hash", UserRole.MANAGER, true, null);
+        SecurityContext.setCurrentUser(managerUser);
+
+        when(leaveRepository.findById(100L)).thenReturn(Optional.of(leave));
+        LeaveConflictResponseDTO evaluation = new LeaveConflictResponseDTO();
+        evaluation.setCanApprove(true);
+        when(leaveConflictService.evaluateLeave(eq(leave), any())).thenReturn(evaluation);
+        when(leaveRepository.save(any(Leave.class))).thenReturn(leave);
+
+        leaveService.approveLeave(100L);
+
+        verify(auditHistoryService, times(1)).recordAudit(
+                eq("manager_dave"),
+                eq("LEAVE_APPROVED"),
+                eq("LEAVE"),
+                eq(100L),
+                eq("PENDING"),
+                eq("APPROVED"),
+                anyString()
+        );
+    }
+
+    @Test
+    void testRejectLeave_RecordsAuthenticatedManagerAsActor() {
+        UserAccount managerUser = new UserAccount("manager_dave", "dave@example.com", "hash", UserRole.MANAGER, true, null);
+        SecurityContext.setCurrentUser(managerUser);
+
+        when(leaveRepository.findById(100L)).thenReturn(Optional.of(leave));
+        when(leaveRepository.save(any(Leave.class))).thenReturn(leave);
+
+        leaveService.rejectLeave(100L);
+
+        verify(auditHistoryService, times(1)).recordAudit(
+                eq("manager_dave"),
+                eq("LEAVE_REJECTED"),
+                eq("LEAVE"),
+                eq(100L),
+                eq("PENDING"),
+                eq("REJECTED"),
+                anyString()
+        );
+    }
+
+    @Test
+    void testCancelLeave_RecordsAuthenticatedEmployeeAsActor() {
+        UserAccount employeeUser = new UserAccount("rahul_emp", "rahul@example.com", "hash", UserRole.EMPLOYEE, true, employee);
+        SecurityContext.setCurrentUser(employeeUser);
+
+        when(leaveRepository.findById(100L)).thenReturn(Optional.of(leave));
+        when(leaveRepository.save(any(Leave.class))).thenReturn(leave);
+
+        leaveService.cancelLeave(100L);
+
+        verify(auditHistoryService, times(1)).recordAudit(
+                eq("rahul_emp"),
+                eq("LEAVE_CANCELLED"),
+                eq("LEAVE"),
+                eq(100L),
+                eq("PENDING"),
+                eq("CANCELLED"),
+                anyString()
+        );
+    }
+
+    @Test
+    void testApplyLeave_RecordsAuthenticatedEmployeeAsActor() {
+        UserAccount employeeUser = new UserAccount("rahul_emp", "rahul@example.com", "hash", UserRole.EMPLOYEE, true, employee);
+        SecurityContext.setCurrentUser(employeeUser);
+
+        when(employeeRepository.findById(10L)).thenReturn(Optional.of(employee));
+        when(leaveTypeRepository.findById(5L)).thenReturn(Optional.of(leaveType));
+        LeaveConflictResponseDTO evaluation = new LeaveConflictResponseDTO();
+        evaluation.setCanApprove(true);
+        when(leaveConflictService.evaluateRequest(any(LeaveRequestDTO.class), any())).thenReturn(evaluation);
+        when(leaveRepository.save(any(Leave.class))).thenAnswer(invocation -> {
+            Leave l = invocation.getArgument(0);
+            l.setId(101L);
+            return l;
+        });
+
+        leaveService.applyLeave(requestDTO);
+
+        verify(auditHistoryService, times(1)).recordAudit(
+                eq("rahul_emp"),
+                eq("LEAVE_SUBMITTED"),
+                eq("LEAVE"),
+                eq(101L),
+                isNull(),
+                eq("PENDING"),
+                anyString()
+        );
     }
 }

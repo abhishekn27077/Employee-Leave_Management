@@ -13,6 +13,8 @@ import com.example.employeeleave.exception.ResourceNotFoundException;
 import com.example.employeeleave.repository.EmployeeRepository;
 import com.example.employeeleave.repository.LeaveRepository;
 import com.example.employeeleave.repository.LeaveTypeRepository;
+import com.example.employeeleave.entity.UserAccount;
+import com.example.employeeleave.security.SecurityContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +50,7 @@ public class LeaveService {
         this.auditHistoryService = auditHistoryService;
     }
 
+    @Transactional
     public Leave applyLeave(LeaveRequestDTO request) {
         validateLeaveRequest(request);
 
@@ -56,6 +59,15 @@ public class LeaveService {
 
         LeaveType leaveType = leaveTypeRepository.findById(request.getLeaveTypeId())
                 .orElseThrow(() -> new ResourceNotFoundException("Leave type not found with id: " + request.getLeaveTypeId()));
+
+        // Authoritative Leave Conflict & Policy Evaluation at submission time
+        LeaveConflictResponseDTO evaluation = leaveConflictService.evaluateRequest(request, null);
+        if (!evaluation.isCanApprove()) {
+            String conflictSummary = evaluation.getConflicts().stream()
+                    .map(ConflictDetailDTO::getMessage)
+                    .collect(Collectors.joining("; "));
+            throw new LeaveConflictException("Cannot submit leave due to conflict(s): " + conflictSummary, evaluation.getConflicts());
+        }
 
         int totalDays = (int) ChronoUnit.DAYS.between(request.getStartDate(), request.getEndDate()) + 1;
         long holidayCount = holidayService.countHolidaysBetween(request.getStartDate(), request.getEndDate());
@@ -79,7 +91,7 @@ public class LeaveService {
         Leave savedLeave = leaveRepository.save(leave);
 
         auditHistoryService.recordAudit(
-                "SYSTEM",
+                resolveActor(),
                 "LEAVE_SUBMITTED",
                 "LEAVE",
                 savedLeave.getId(),
@@ -121,6 +133,15 @@ public class LeaveService {
             String conflictSummary = evaluation.getConflicts().stream()
                     .map(ConflictDetailDTO::getMessage)
                     .collect(Collectors.joining("; "));
+            auditHistoryService.recordAudit(
+                    resolveActor(),
+                    "LEAVE_APPROVAL_BLOCKED",
+                    "LEAVE",
+                    leave.getId(),
+                    "PENDING",
+                    "PENDING",
+                    "Leave approval blocked due to conflict(s): " + conflictSummary
+            );
             throw new LeaveConflictException("Cannot approve leave due to conflict(s): " + conflictSummary, evaluation.getConflicts());
         }
 
@@ -133,7 +154,7 @@ public class LeaveService {
         Leave saved = leaveRepository.save(leave);
 
         auditHistoryService.recordAudit(
-                "SYSTEM",
+                resolveActor(),
                 "LEAVE_APPROVED",
                 "LEAVE",
                 saved.getId(),
@@ -155,7 +176,7 @@ public class LeaveService {
         Leave saved = leaveRepository.save(leave);
 
         auditHistoryService.recordAudit(
-                "SYSTEM",
+                resolveActor(),
                 "LEAVE_REJECTED",
                 "LEAVE",
                 saved.getId(),
@@ -177,7 +198,7 @@ public class LeaveService {
         Leave saved = leaveRepository.save(leave);
 
         auditHistoryService.recordAudit(
-                "SYSTEM",
+                resolveActor(),
                 "LEAVE_CANCELLED",
                 "LEAVE",
                 saved.getId(),
@@ -187,6 +208,14 @@ public class LeaveService {
         );
 
         return saved;
+    }
+
+    private String resolveActor() {
+        UserAccount currentUser = SecurityContext.getCurrentUser();
+        if (currentUser != null && currentUser.getUsername() != null && !currentUser.getUsername().trim().isEmpty()) {
+            return currentUser.getUsername().trim();
+        }
+        return "SYSTEM";
     }
 
     private void validateLeaveRequest(LeaveRequestDTO request) {
