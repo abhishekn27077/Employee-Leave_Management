@@ -330,7 +330,7 @@ The application uses standard property placeholders in `src/main/resources/appli
 
 ### Prerequisites
 - **JDK 21** installed (`java -version`)
-- **MySQL 8.0+** running on port 3306
+- **MySQL 8.0+** running on port 3306 (`net start MySQL80` or via Windows Services)
 - **Node.js (v18+) & npm** (`node -v`, `npm -v`)
 - **Git**
 
@@ -340,33 +340,42 @@ git clone https://github.com/abhishekn27077/Employee-Leave_Management.git
 cd Employee-Leave_Management
 ```
 
-### Step 2 — Create the MySQL Database
-Log into MySQL using MySQL Workbench or PowerShell CLI:
-```sql
-CREATE DATABASE IF NOT EXISTS employee_leave_db;
-```
+### Step 2 — Configure Database Credentials (If MySQL has a password)
+The default MySQL password is empty. If your local MySQL `root` user requires a password, choose either method:
+- **Method A (Recommended — Permanent & Git-safe)**: Copy `application-example.properties` to `src/main/resources/application-local.properties` (already in `.gitignore`) and specify your password:
+  ```properties
+  spring.datasource.password=your_mysql_password
+  ```
+- **Method B (Environment Variable)**:
+  ```powershell
+  $env:DB_PASSWORD="your_mysql_password"
+  ```
 
-### Step 3 — Set Environment Variables (Optional)
-If your MySQL root user has a password:
-```powershell
-$env:DB_USERNAME="root"
-$env:DB_PASSWORD="your_password_here"
-```
+*(Note: The JDBC URL is pre-configured with `createDatabaseIfNotExist=true`. As long as MySQL is running, Spring Boot will automatically create `employee_leave_db` on first boot if it does not already exist!)*
 
-### Step 4 — Run the Spring Boot Backend
-```powershell
-.\mvnw.cmd spring-boot:run
-```
-The backend initializes the database schema and seeds demo accounts on `http://localhost:8080`.
+### Step 3 — Run the Application
 
-### Step 5 — Run the Frontend Development Server
-Open a separate terminal window:
+#### Option 1: Turnkey One-Command Launcher (Recommended)
+Run the included development launcher from the project root:
 ```powershell
-cd frontend
-npm install
-npm run dev
+.\start-dev.ps1
 ```
-The Vite development server will start on `http://localhost:5173`.
+*This checks prerequisites (Java, Node, MySQL port 3306), verifies configuration, and launches both backend (port 8080) and frontend (port 5173/5174) in separate console windows.*
+
+#### Option 2: Manual Terminal Commands
+- **Terminal 1 (Backend)**:
+  ```powershell
+  .\mvnw.cmd spring-boot:run
+  ```
+  *Listens on `http://localhost:8080`. Automatically applies JPA schema and seeds demo accounts.*
+
+- **Terminal 2 (Frontend)**:
+  ```powershell
+  cd frontend
+  npm install
+  npm run dev
+  ```
+  *Opens on `http://localhost:5173` (or `http://localhost:5174` if 5173 is occupied). Both origins are fully allowed by backend CORS.*
 
 ---
 

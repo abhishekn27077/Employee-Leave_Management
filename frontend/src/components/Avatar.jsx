@@ -29,21 +29,45 @@ function getInitials(name = '') {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function Avatar({ name = '', size = 32, className = '' }) {
+const SIZE_MAP = {
+  xs: 24,
+  sm: 32,
+  md: 36,
+  lg: 40,
+  xl: 44,
+};
+
+function Avatar({ name = '', size = 'md', className = '' }) {
   const palette = getPalette(name);
   const initials = getInitials(name);
-  const fontSize = Math.max(10, Math.floor(size * 0.38));
+
+  // Normalize size whether passed as numeric or string token ('sm', 'md', 'lg', 'xl')
+  const numericSize = typeof size === 'number' ? size : SIZE_MAP[size] || 36;
+  const fontSize = Math.max(10, Math.floor(numericSize * 0.38));
 
   return (
     <div
       className={`user-avatar ${className}`}
       style={{
-        width: `${size}px`,
-        height: `${size}px`,
+        width: `${numericSize}px`,
+        height: `${numericSize}px`,
+        minWidth: `${numericSize}px`,
+        minHeight: `${numericSize}px`,
+        maxWidth: `${numericSize}px`,
+        maxHeight: `${numericSize}px`,
+        aspectRatio: '1 / 1',
+        borderRadius: '50%',
         backgroundColor: palette.bg,
         color: palette.text,
         border: `1.5px solid ${palette.border}`,
         fontSize: `${fontSize}px`,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        boxSizing: 'border-box',
+        lineHeight: 1,
+        userSelect: 'none',
       }}
       aria-hidden="true"
       title={name}

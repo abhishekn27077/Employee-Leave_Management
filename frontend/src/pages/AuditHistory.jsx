@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { auditHistoryApi, extractErrorMessage } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
+import PageHeader from '../components/PageHeader';
+import StatCard from '../components/StatCard';
+import SkeletonLoader from '../components/SkeletonLoader';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
-import PageHeader from '../components/PageHeader';
 import {
   IconSearch,
   IconRefresh,
   IconCalendar,
   IconClock,
-  IconInfo,
+  IconShield,
+  IconLeaves,
+  IconX,
 } from '../components/Icons';
 
 export default function AuditHistory() {
@@ -123,37 +126,45 @@ export default function AuditHistory() {
 
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
 
-      {/* KPI Stats */}
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-card">
-          <span className="stat-label">Total Logged Events</span>
-          <span className="stat-value">{totalEvents}</span>
-          <span className="stat-helper">System operations recorded in ledger</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Leave Lifecycle Events</span>
-          <span className="stat-value" style={{ color: 'var(--primary-color, #4f46e5)' }}>
-            {leaveEvents}
-          </span>
-          <span className="stat-helper">Submissions, approvals & cancellations</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Admin & Policy Events</span>
-          <span className="stat-value" style={{ color: 'var(--text-muted, #64748b)' }}>
-            {adminEvents}
-          </span>
-          <span className="stat-helper">Adjustments & policy modifications</span>
-        </div>
+      {/* KPI Stats - Compact SaaS Proportions */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 mb-5">
+        <StatCard
+          label="Total Logged Events"
+          value={totalEvents}
+          unit="events"
+          subtext="System operations in immutable ledger"
+          icon={<IconClock size={16} />}
+          tone="primary"
+        />
+        <StatCard
+          label="Leave Lifecycle Events"
+          value={leaveEvents}
+          unit="events"
+          subtext="Submissions, approvals & cancellations"
+          icon={<IconLeaves size={16} />}
+          tone="primary"
+        />
+        <StatCard
+          label="Admin & Policy Events"
+          value={adminEvents}
+          unit="events"
+          subtext="Adjustments & policy modifications"
+          icon={<IconShield size={16} />}
+          tone="slate"
+        />
       </div>
 
       {/* Filter and Table Content Card */}
-      <div className="content-card">
-        <div className="card-toolbar" style={{ display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'stretch' }}>
+      <div className="card-modern">
+        <div className="search-filter-toolbar" style={{ flexDirection: 'column', gap: '1rem', alignItems: 'stretch' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
             {/* Search Box */}
             <div className="search-input-wrapper" style={{ flex: '1 1 240px' }}>
               <IconSearch size={16} className="search-icon" />
               <input
+                id="auditSearch"
+                name="searchTerm"
+                aria-label="Search audit events"
                 type="text"
                 className="search-input"
                 value={searchTerm}
@@ -167,13 +178,16 @@ export default function AuditHistory() {
                   onClick={() => setSearchTerm('')}
                   aria-label="Clear search"
                 >
-                  &times;
+                  <IconX size={14} />
                 </button>
               )}
             </div>
 
             {/* Entity Type Filter */}
             <select
+              id="auditEntityType"
+              name="entityTypeFilter"
+              aria-label="Filter by Entity Type"
               value={entityTypeFilter}
               onChange={(e) => setEntityTypeFilter(e.target.value)}
               className="form-control"
@@ -187,6 +201,9 @@ export default function AuditHistory() {
 
             {/* Action Filter */}
             <select
+              id="auditAction"
+              name="actionFilter"
+              aria-label="Filter by Action"
               value={actionFilter}
               onChange={(e) => setActionFilter(e.target.value)}
               className="form-control"
@@ -205,6 +222,9 @@ export default function AuditHistory() {
 
             {/* Entity ID */}
             <input
+              id="auditEntityId"
+              name="entityIdFilter"
+              aria-label="Filter by Entity ID"
               type="number"
               value={entityIdFilter}
               onChange={(e) => setEntityIdFilter(e.target.value)}
@@ -215,6 +235,9 @@ export default function AuditHistory() {
 
             {/* Start Date */}
             <input
+              id="auditStartDate"
+              name="startDate"
+              aria-label="Filter by Start Date"
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
@@ -225,6 +248,9 @@ export default function AuditHistory() {
 
             {/* End Date */}
             <input
+              id="auditEndDate"
+              name="endDate"
+              aria-label="Filter by End Date"
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
@@ -251,7 +277,9 @@ export default function AuditHistory() {
 
         {/* Audit Log Table */}
         {loading ? (
-          <LoadingSpinner message="Loading audit history..." />
+          <div style={{ padding: '1rem' }}>
+            <SkeletonLoader type="table" rows={6} />
+          </div>
         ) : filteredAudits.length === 0 ? (
           <EmptyState
             icon={<IconClock size={36} className="text-muted" />}
@@ -259,8 +287,8 @@ export default function AuditHistory() {
             description="No system audit events match the specified search or filter criteria."
           />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
                   <th style={{ width: '80px' }}>Audit #</th>
@@ -279,12 +307,12 @@ export default function AuditHistory() {
                       <span className="code-pill">#{a.id}</span>
                     </td>
                     <td>
-                      <span className="timestamp-text">
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary, #475569)', whiteSpace: 'nowrap' }}>
                         {a.timestamp ? new Date(a.timestamp).toLocaleString() : '—'}
                       </span>
                     </td>
                     <td>
-                      <span className="code-pill-sm">
+                      <span className="code-pill">
                         {a.actor || 'SYSTEM'}
                       </span>
                     </td>
@@ -296,19 +324,19 @@ export default function AuditHistory() {
                     <td>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{a.entityType}</span>
-                        <span className="code-pill-sm">ID: {a.entityId}</span>
+                        <span className="code-pill" style={{ fontSize: '0.6875rem' }}>ID: {a.entityId}</span>
                       </div>
                     </td>
                     <td>
                       {a.oldValue || a.newValue ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.75rem' }}>
                           {a.oldValue && (
-                            <div style={{ color: 'var(--rose-600, #e11d48)' }}>
+                            <div style={{ color: 'var(--danger-color, #dc2626)' }}>
                               <span style={{ fontWeight: 600 }}>Old:</span> {a.oldValue}
                             </div>
                           )}
                           {a.newValue && (
-                            <div style={{ color: 'var(--emerald-600, #059669)' }}>
+                            <div style={{ color: 'var(--success-color, #16a34a)' }}>
                               <span style={{ fontWeight: 600 }}>New:</span> {a.newValue}
                             </div>
                           )}

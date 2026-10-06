@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { employeeApi, leaveTypeApi, leaveBalanceApi, extractErrorMessage } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import Avatar from '../components/Avatar';
+import StatCard from '../components/StatCard';
+import SkeletonLoader from '../components/SkeletonLoader';
+import FormField from '../components/FormField';
 import {
   IconLeaves,
   IconPlus,
   IconSearch,
   IconRefresh,
+  IconCalendar,
+  IconCheckCircle,
 } from '../components/Icons';
 
 function LeaveBalances() {
@@ -42,7 +46,6 @@ function LeaveBalances() {
     setError('');
     try {
       if (isEmployeeRole) {
-        // Employee only needs their own balances
         const balRes = await leaveBalanceApi.getAll();
         setBalances(balRes.data || []);
       } else {
@@ -113,129 +116,129 @@ function LeaveBalances() {
   });
 
   return (
-    <div className="leave-balances-page">
+    <div className="leave-balances-page space-y-6">
       <PageHeader
-        title={isEmployeeRole ? 'My Leave Balances' : 'Employee Leave Balances'}
+        title={isEmployeeRole ? 'My Leave Balances' : 'Employee Leave Quotas'}
         subtitle={
           isEmployeeRole
-            ? 'View your leave quotas, track approved days taken, and check remaining leave balances'
-            : 'Audit employee time-off entitlement quotas, monitor approved consumption, and initialize balances'
+            ? 'View your annual leave entitlements, track approved days used, and verify remaining balances.'
+            : 'Audit employee time-off entitlement quotas, monitor usage velocity, and initialize balances.'
         }
         badge={`${balances.length} Balances`}
         actions={
-          <>
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={fetchData}
               disabled={loading}
             >
-              <IconRefresh size={16} />
+              <IconRefresh size={14} className={loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
             {isHrAdmin && (
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 onClick={() => setShowBalanceModal(true)}
               >
-                <IconPlus size={16} />
+                <IconPlus size={14} />
                 <span>Initialize Balance</span>
               </button>
             )}
-          </>
+          </div>
         }
       />
 
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
       <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />
 
-      {/* KPI Stats Grid */}
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-card">
-          <span className="stat-label">Total Allocated Quota</span>
-          <span className="stat-value">{totalEntitled} <small style={{ fontSize: '1rem', fontWeight: 500 }}>Days</small></span>
-          <span className="stat-helper">{isEmployeeRole ? 'Your total leave quota' : 'Across active employee balances'}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Approved & Consumed</span>
-          <span className="stat-value" style={{ color: 'var(--amber-500, #f59e0b)' }}>{totalUsed} <small style={{ fontSize: '1rem', fontWeight: 500 }}>Days</small></span>
-          <span className="stat-helper">{isEmployeeRole ? 'Used from your quotas' : 'Deducted from active quotas'}</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Available Balance</span>
-          <span className="stat-value" style={{ color: 'var(--emerald-500, #10b981)' }}>{totalRemaining} <small style={{ fontSize: '1rem', fontWeight: 500 }}>Days</small></span>
-          <span className="stat-helper">{isEmployeeRole ? 'Your remaining time-off pool' : 'Net remaining time-off pool'}</span>
-        </div>
+      {/* KPI Stats Grid - Compact SaaS Proportions */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <StatCard
+          label="Total Entitlement"
+          value={`${totalEntitled} days`}
+          subtext={isEmployeeRole ? 'Your full annual allocation' : 'Combined workforce quota'}
+          icon={<IconCalendar size={16} />}
+          tone="primary"
+        />
+        <StatCard
+          label="Used Leave"
+          value={`${totalUsed} days`}
+          subtext={isEmployeeRole ? 'Approved days deducted' : 'Total days taken to date'}
+          icon={<IconLeaves size={16} />}
+          tone="amber"
+        />
+        <StatCard
+          label="Remaining Balance"
+          value={`${totalRemaining} days`}
+          subtext={isEmployeeRole ? 'Available for future requests' : 'Net remaining quota pool'}
+          icon={<IconCheckCircle size={16} />}
+          tone="emerald"
+        />
       </div>
 
       {/* Main Table Card */}
-      <div className="content-card">
+      <div className="card-modern">
         {/* Search & Filter Toolbar */}
         {!isEmployeeRole && (
-          <div className="card-header" style={{ padding: '1rem 1.25rem' }}>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', width: '100%', alignItems: 'center' }}>
-              <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
-                <IconSearch size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                <input
-                  type="text"
-                  className="form-input"
-                  style={{ paddingLeft: '36px', height: '40px' }}
-                  placeholder="Search by employee, department, or leave type..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              {employees.length > 0 && (
-                <div style={{ minWidth: '200px' }}>
-                  <select
-                    className="form-select"
-                    style={{ height: '40px' }}
-                    value={selectedEmployeeFilter}
-                    onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
-                  >
-                    <option value="ALL">All Employees</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={String(emp.id)}>
-                        {emp.name} ({emp.employeeId})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+          <div className="p-4 border-b flex items-center justify-between flex-wrap gap-3" style={{ borderColor: 'var(--color-border)' }}>
+            <div className="search-input-wrapper flex-1 min-w-[240px]">
+              <IconSearch size={14} className="search-icon" />
+              <input
+                type="text"
+                className="search-input text-xs"
+                placeholder="Search employee, department, or leave category..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
+            {employees.length > 0 && (
+              <div className="min-w-[200px]">
+                <select
+                  className="form-control text-xs"
+                  value={selectedEmployeeFilter}
+                  onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
+                >
+                  <option value="ALL">All Employees</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={String(emp.id)}>
+                      {emp.name} ({emp.employeeId})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         )}
 
         {loading ? (
-          <div style={{ padding: '3rem', textAlign: 'center' }}>
-            <LoadingSpinner size="lg" />
-            <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Loading leave balances...</p>
+          <div className="p-6">
+            <SkeletonLoader variant="table" count={5} />
           </div>
         ) : filteredBalances.length === 0 ? (
           <EmptyState
-            icon={<IconLeaves size={36} className="text-muted" />}
             title="No leave balance records found"
             description={
               isEmployeeRole
-                ? 'No leave balance quotas have been initialized for your account yet. Contact HR administration.'
-                : 'No employee balances match your current filters. Use Initialize Balance to assign quotas.'
+                ? 'No leave balance quotas have been initialized for your profile yet. Please contact HR administration.'
+                : 'No employee balance records match your filter criteria.'
             }
             actionText={isHrAdmin ? 'Initialize Balance' : undefined}
             onAction={isHrAdmin ? () => setShowBalanceModal(true) : undefined}
           />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
                   {!isEmployeeRole && <th>Employee</th>}
                   {!isEmployeeRole && <th>Department</th>}
-                  <th>Leave Type</th>
+                  <th>Leave Category</th>
                   <th>Entitlement</th>
                   <th>Used Days</th>
                   <th>Remaining Balance</th>
-                  <th>Utilization</th>
+                  <th style={{ minWidth: 150 }}>Quota Utilization</th>
                 </tr>
               </thead>
               <tbody>
@@ -248,13 +251,13 @@ function LeaveBalances() {
                     <tr key={item.id}>
                       {!isEmployeeRole && (
                         <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <div className="flex items-center gap-2.5">
                             <Avatar name={item.employee?.name || 'User'} size="sm" />
                             <div>
-                              <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                              <div className="font-semibold text-primary text-xs">
                                 {item.employee?.name || 'Unknown'}
                               </div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              <div className="text-[11px] font-mono text-muted">
                                 {item.employee?.employeeId || ''}
                               </div>
                             </div>
@@ -263,56 +266,46 @@ function LeaveBalances() {
                       )}
                       {!isEmployeeRole && (
                         <td>
-                          <span className="dept-tag-sm">
+                          <span className="text-secondary text-xs">
                             {item.employee?.department?.name || 'Unassigned'}
                           </span>
                         </td>
                       )}
                       <td>
-                        <span className="badge badge-pending" style={{ background: 'var(--primary-subtle, #e0e7ff)', color: 'var(--primary-dark, #3730a3)' }}>
+                        <span className="text-xs font-semibold text-primary">
                           {item.leaveType?.name || 'Leave Type'}
                         </span>
                       </td>
                       <td>
-                        <span className="duration-pill">{item.entitlement} Days</span>
+                        <span className="text-secondary font-mono text-xs">{item.entitlement} Days</span>
                       </td>
                       <td>
-                        <span style={{ color: 'var(--amber-600, #d97706)', fontWeight: 600 }}>
+                        <span className="font-mono font-medium text-xs" style={{ color: 'var(--color-warning)' }}>
                           {item.usedDays} Days
                         </span>
                       </td>
                       <td>
                         <span
+                          className="font-mono font-bold text-xs"
                           style={{
-                            color: item.remainingBalance > 0 ? 'var(--emerald-600, #059669)' : 'var(--rose-600, #e11d48)',
-                            fontWeight: 700,
+                            color: item.remainingBalance > 0 ? 'var(--color-success)' : 'var(--color-danger)',
                           }}
                         >
                           {item.remainingBalance} Days
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div
-                            style={{
-                              flex: 1,
-                              height: '6px',
-                              background: 'var(--border-color, #e2e8f0)',
-                              borderRadius: '999px',
-                              overflow: 'hidden',
-                              minWidth: '60px',
-                            }}
-                          >
+                        <div className="flex items-center gap-2">
+                          <div className="progress-track flex-1">
                             <div
+                              className="progress-fill"
                               style={{
                                 width: `${pct}%`,
-                                height: '100%',
-                                background: pct > 80 ? 'var(--rose-500, #ef4444)' : 'var(--primary-color, #4f46e5)',
-                                borderRadius: '999px',
+                                background: pct >= 90 ? 'var(--color-danger)' : pct >= 70 ? 'var(--color-warning)' : 'var(--color-primary)',
                               }}
                             />
                           </div>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #64748b)' }}>
+                          <span className="text-[11px] font-mono font-medium text-secondary tabular-nums w-8 text-right">
                             {pct}%
                           </span>
                         </div>
@@ -329,9 +322,12 @@ function LeaveBalances() {
       {/* Balance Initialization Modal */}
       {showBalanceModal && (
         <div className="modal-backdrop">
-          <div className="modal-dialog">
+          <div className="modal-container max-w-md">
             <div className="modal-header">
-              <h3 className="modal-title">Initialize Employee Leave Balance</h3>
+              <div>
+                <h3 className="modal-title">Initialize Leave Quota</h3>
+                <p className="modal-subtitle">Assign baseline annual leave entitlement to an employee profile</p>
+              </div>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -341,26 +337,27 @@ function LeaveBalances() {
               </button>
             </div>
             <form onSubmit={handleCreateBalance}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Employee *</label>
+              <div className="modal-body space-y-4">
+                <FormField label="Target Employee" required htmlFor="balanceEmp">
                   <select
-                    className="form-select"
+                    id="balanceEmp"
+                    className="form-control"
                     value={balanceForm.employeeId}
                     onChange={(e) => setBalanceForm({ ...balanceForm, employeeId: e.target.value })}
                     required
                   >
                     {employees.map((emp) => (
                       <option key={emp.id} value={emp.id}>
-                        {emp.name} ({emp.employeeId}) &bull; {emp.department?.name || 'No Dept'}
+                        {emp.name} ({emp.employeeId}) &bull; {emp.department?.name || 'General'}
                       </option>
                     ))}
                   </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Leave Type *</label>
+                </FormField>
+
+                <FormField label="Leave Category" required htmlFor="balanceLt">
                   <select
-                    className="form-select"
+                    id="balanceLt"
+                    className="form-control"
                     value={balanceForm.leaveTypeId}
                     onChange={(e) => setBalanceForm({ ...balanceForm, leaveTypeId: e.target.value })}
                     required
@@ -371,33 +368,36 @@ function LeaveBalances() {
                       </option>
                     ))}
                   </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Allocated Entitlement (Days) *</label>
+                </FormField>
+
+                <FormField
+                  label="Allocated Entitlement (Days)"
+                  required
+                  htmlFor="balanceEnt"
+                  hint="Baseline annual allowance. Remaining balance updates automatically as requests are approved."
+                >
                   <input
+                    id="balanceEnt"
                     type="number"
-                    className="form-input"
+                    className="form-control"
                     min="1"
-                    placeholder="e.g. 15"
+                    placeholder="e.g. 20"
                     value={balanceForm.entitlement}
                     onChange={(e) => setBalanceForm({ ...balanceForm, entitlement: e.target.value })}
                     required
                   />
-                  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
-                    Sets the baseline quota for this employee. Remaining balance will update automatically as leave is approved.
-                  </small>
-                </div>
+                </FormField>
               </div>
-              <div className="modal-footer">
+              <div className="modal-actions">
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => setShowBalanceModal(false)}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Save Balance Record
+                <button type="submit" className="btn btn-primary btn-sm">
+                  Initialize Quota
                 </button>
               </div>
             </form>

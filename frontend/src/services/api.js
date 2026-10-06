@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -89,6 +89,7 @@ export const leaveApi = {
   getAll: (params) => api.get('/leaves', { params }),
   getById: (id) => api.get(`/leaves/${id}`),
   getByEmployee: (employeeId) => api.get(`/leaves/employee/${employeeId}`),
+  getMyLeaves: (params) => api.get('/leaves', { params }),
   apply: (data) => api.post('/leaves', data),
   approve: (id) => api.put(`/leaves/${id}/approve`),
   reject: (id) => api.put(`/leaves/${id}/reject`),
@@ -115,6 +116,7 @@ export const leaveBalanceApi = {
   getAll: (params) => api.get('/leave-balances', { params }),
   getById: (id) => api.get(`/leave-balances/${id}`),
   getByEmployee: (employeeId) => api.get(`/leave-balances/employee/${employeeId}`),
+  getMyBalances: () => api.get('/leave-balances'),
   create: (data) => api.post('/leave-balances', data),
 };
 
@@ -129,6 +131,8 @@ export const holidayApi = {
 
 export const availabilityApi = {
   getDepartmentAvailability: (departmentId, date) =>
+    api.get('/availability', { params: { departmentId, date } }),
+  getByDepartment: (departmentId, date) =>
     api.get('/availability', { params: { departmentId, date } }),
 };
 

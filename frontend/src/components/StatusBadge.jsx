@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconCheck, IconX, IconBan } from './Icons';
+import { IconCheck, IconX, IconBan, IconAlertCircle } from './Icons';
 
 function StatusBadge({ status }) {
   const normalized = (status || '').toUpperCase();
@@ -29,6 +29,36 @@ function StatusBadge({ status }) {
           className: 'badge-cancelled',
           icon: <IconBan size={12} className="status-badge-icon" />,
           label: 'Cancelled',
+        };
+      case 'ACTIVE':
+        return {
+          className: 'badge-approved',
+          icon: <span className="status-dot status-dot-approved" aria-hidden="true" />,
+          label: 'Active',
+        };
+      case 'INACTIVE':
+        return {
+          className: 'badge-neutral',
+          icon: <span className="status-dot status-dot-cancelled" aria-hidden="true" />,
+          label: 'Inactive',
+        };
+      case 'AVAILABLE':
+        return {
+          className: 'badge-approved',
+          icon: <span className="status-dot status-dot-approved" aria-hidden="true" />,
+          label: 'Available',
+        };
+      case 'CONFLICT':
+        return {
+          className: 'badge-rejected',
+          icon: <IconAlertCircle size={12} className="status-badge-icon" />,
+          label: 'Conflict',
+        };
+      case 'WARNING':
+        return {
+          className: 'badge-pending',
+          icon: <IconAlertCircle size={12} className="status-badge-icon" />,
+          label: 'Warning',
         };
       default:
         return {

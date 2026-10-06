@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { employeeApi, leaveTypeApi, leaveAdjustmentApi, leaveBalanceApi, extractErrorMessage } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import Avatar from '../components/Avatar';
+import StatCard from '../components/StatCard';
+import SkeletonLoader from '../components/SkeletonLoader';
+import FormField from '../components/FormField';
 import {
   IconPlus,
   IconSearch,
   IconRefresh,
   IconLeaves,
+  IconCheckCircle,
 } from '../components/Icons';
 
 export default function LeaveAdjustments() {
@@ -37,7 +40,6 @@ export default function LeaveAdjustments() {
 
   // Current balance preview for selected employee + leave type
   const [selectedBalance, setSelectedBalance] = useState(null);
-  const [loadingBalance, setLoadingBalance] = useState(false);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -69,7 +71,6 @@ export default function LeaveAdjustments() {
   // Fetch balance preview when form employee & leaveType change
   useEffect(() => {
     if (form.employeeId && form.leaveTypeId) {
-      setLoadingBalance(true);
       leaveBalanceApi
         .getByEmployee(form.employeeId)
         .then((res) => {
@@ -77,8 +78,7 @@ export default function LeaveAdjustments() {
           const found = list.find((b) => b.leaveType?.id === Number(form.leaveTypeId));
           setSelectedBalance(found || null);
         })
-        .catch(() => setSelectedBalance(null))
-        .finally(() => setLoadingBalance(false));
+        .catch(() => setSelectedBalance(null));
     } else {
       setSelectedBalance(null);
     }
@@ -100,7 +100,7 @@ export default function LeaveAdjustments() {
   const handleSubmitAdjustment = async (e) => {
     e.preventDefault();
     if (!form.employeeId || !form.leaveTypeId) {
-      setError('Please select both an employee and a leave type.');
+      setError('Please select both an employee and a leave category.');
       return;
     }
     const days = parseInt(form.adjustmentDays, 10);
@@ -136,7 +136,6 @@ export default function LeaveAdjustments() {
     }
   };
 
-  // Filtered adjustments
   const filteredAdjustments = adjustments.filter((adj) => {
     const matchesEmp =
       selectedEmployeeFilter === 'ALL' || adj.employee?.id === Number(selectedEmployeeFilter);
@@ -163,137 +162,134 @@ export default function LeaveAdjustments() {
   const totalNegative = adjustments.filter((a) => a.adjustmentDays < 0).length;
 
   return (
-    <div className="leave-adjustments-page">
+    <div className="leave-adjustments-page space-y-6">
       <PageHeader
-        title="Leave Adjustments"
-        subtitle="Authorized employee leave balance corrections and immutable audit transaction logs"
+        title="Leave Balance Adjustments"
+        subtitle="Authorized balance adjustments, quota corrections, and immutable audit logs."
         badge={`${adjustments.length} Adjustments`}
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={fetchData}
               disabled={loading}
             >
-              <IconRefresh size={16} />
+              <IconRefresh size={14} className={loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
             {isHrAdmin && (
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 onClick={handleOpenModal}
               >
-                <IconPlus size={16} />
+                <IconPlus size={14} />
                 <span>New Adjustment</span>
               </button>
             )}
-          </>
+          </div>
         }
       />
 
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
       <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />
 
-      {/* KPI Stats */}
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-card">
-          <span className="stat-label">Total Adjustments</span>
-          <span className="stat-value">{adjustments.length}</span>
-          <span className="stat-helper">Balance transactions logged</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Credit Additions (+)</span>
-          <span className="stat-value" style={{ color: 'var(--emerald-600, #059669)' }}>
-            {totalPositive}
-          </span>
-          <span className="stat-helper">Quota allocations granted</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Debit Deductions (-)</span>
-          <span className="stat-value" style={{ color: 'var(--rose-600, #e11d48)' }}>
-            {totalNegative}
-          </span>
-          <span className="stat-helper">Quota reductions applied</span>
-        </div>
+      {/* KPI Stats - Compact SaaS Proportions */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <StatCard
+          label="Total Adjustments"
+          value={adjustments.length}
+          unit="entries"
+          subtext="Balance transactions logged"
+          icon={<IconLeaves size={16} />}
+          tone="slate"
+        />
+
+        <StatCard
+          label="Credit Additions (+)"
+          value={totalPositive}
+          unit="days"
+          subtext="Quota increases granted"
+          icon={<IconCheckCircle size={16} />}
+          tone="emerald"
+        />
+
+        <StatCard
+          label="Debit Deductions (-)"
+          value={totalNegative}
+          unit="days"
+          subtext="Quota reductions applied"
+          icon={<IconLeaves size={16} />}
+          tone="amber"
+        />
       </div>
 
       {/* Content Card with Toolbar and Table */}
-      <div className="content-card">
-        <div className="card-toolbar">
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', flex: 1 }}>
-            <div className="search-input-wrapper">
-              <IconSearch size={16} className="search-icon" />
-              <input
-                type="text"
-                className="search-input"
-                placeholder="Search employee, reason, ref..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              {searchTerm && (
-                <button
-                  type="button"
-                  className="search-clear-btn"
-                  onClick={() => setSearchTerm('')}
-                  aria-label="Clear search"
-                >
-                  &times;
-                </button>
-              )}
-            </div>
+      <div className="card-modern">
+        <div className="p-4 border-b flex items-center justify-between flex-wrap gap-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="search-input-wrapper flex-1 min-w-[240px]">
+            <IconSearch size={14} className="search-icon" />
+            <input
+              type="text"
+              className="search-input text-xs"
+              placeholder="Search employee, reason, reference..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
 
+          <div className="flex items-center gap-3">
             <select
               value={selectedEmployeeFilter}
               onChange={(e) => setSelectedEmployeeFilter(e.target.value)}
-              className="toolbar-select"
+              className="form-control text-xs min-w-[180px]"
             >
               <option value="ALL">All Employees</option>
               {employees.map((emp) => {
                 const empDisplay = emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown';
                 const empCode = emp.employeeId ? ` (${emp.employeeId})` : '';
-                const dept = emp.department?.name ? ` - ${emp.department.name}` : '';
                 return (
                   <option key={emp.id} value={emp.id}>
-                    {empDisplay}{empCode}{dept}
+                    {empDisplay}{empCode}
                   </option>
                 );
               })}
             </select>
-          </div>
 
-          <span className="toolbar-count">
-            Showing {filteredAdjustments.length} of {adjustments.length}
-          </span>
+            <span className="text-xs text-muted font-mono">
+              {filteredAdjustments.length} of {adjustments.length}
+            </span>
+          </div>
         </div>
 
         {loading ? (
-          <LoadingSpinner message="Loading adjustments..." />
+          <div className="p-6">
+            <SkeletonLoader variant="table" count={5} />
+          </div>
         ) : filteredAdjustments.length === 0 ? (
           <EmptyState
-            icon={<IconLeaves size={36} className="text-muted" />}
-            title="No Adjustments Found"
+            title="No adjustments found"
             description={
               searchTerm || selectedEmployeeFilter !== 'ALL'
                 ? 'No leave adjustments match your search criteria.'
                 : 'No manual balance corrections have been recorded.'
             }
-            actionText={isHrAdmin && adjustments.length === 0 ? 'Create First Adjustment' : null}
-            onAction={isHrAdmin && adjustments.length === 0 ? handleOpenModal : null}
+            actionText={isHrAdmin && adjustments.length === 0 ? 'Create First Adjustment' : undefined}
+            onAction={isHrAdmin && adjustments.length === 0 ? handleOpenModal : undefined}
           />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
                   <th style={{ width: '80px' }}>Ref #</th>
                   <th>Employee</th>
-                  <th>Leave Type</th>
+                  <th>Leave Category</th>
                   <th>Adjustment</th>
-                  <th>Reason</th>
-                  <th>Reference</th>
-                  <th>Timestamp</th>
+                  <th>Reason / Justification</th>
+                  <th>Reference ID</th>
+                  <th>Recorded At</th>
                 </tr>
               </thead>
               <tbody>
@@ -306,45 +302,50 @@ export default function LeaveAdjustments() {
                   return (
                     <tr key={adj.id}>
                       <td>
-                        <span className="code-pill">#{adj.id}</span>
+                        <span className="font-mono text-xs text-muted">#{adj.id}</span>
                       </td>
                       <td>
-                        <div className="employee-cell-avatar">
-                          <Avatar name={empName} size={32} />
-                          <div className="employee-info-cell">
-                            <span className="employee-primary-name">{empName}</span>
-                            <div className="cell-subtext-group">
-                              {empCode && <span className="code-pill-sm">{empCode}</span>}
-                              <span className="dept-tag-sm">{deptName}</span>
+                        <div className="flex items-center gap-2">
+                          <Avatar name={empName} size="sm" />
+                          <div>
+                            <span className="font-semibold text-primary text-xs block">{empName}</span>
+                            <div className="flex items-center gap-1 text-[11px] text-muted">
+                              {empCode && <span className="font-mono">{empCode}</span>}
+                              <span>&bull;</span>
+                              <span>{deptName}</span>
                             </div>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <span className="policy-badge">{adj.leaveType?.name}</span>
+                        <span className="text-xs font-semibold text-primary">{adj.leaveType?.name}</span>
                       </td>
                       <td>
                         <span
-                          className={`status-badge ${isPositive ? 'badge-approved' : 'badge-rejected'}`}
-                          style={{ fontWeight: 700 }}
+                          className="font-mono font-bold text-xs px-2 py-0.5 rounded"
+                          style={{
+                            background: isPositive ? 'var(--color-success-light)' : 'var(--color-danger-light)',
+                            color: isPositive ? 'var(--color-success)' : 'var(--color-danger)',
+                            border: `1px solid ${isPositive ? 'var(--color-success)' : 'var(--color-danger)'}`,
+                          }}
                         >
                           {isPositive ? `+${adj.adjustmentDays}` : adj.adjustmentDays} Days
                         </span>
                       </td>
                       <td>
-                        <span className="reason-text" title={adj.reason}>
+                        <span className="text-xs text-secondary truncate max-w-xs block" title={adj.reason}>
                           {adj.reason}
                         </span>
                       </td>
                       <td>
                         {adj.reference ? (
-                          <span className="code-pill-sm">{adj.reference}</span>
+                          <span className="font-mono text-xs text-muted">{adj.reference}</span>
                         ) : (
-                          <span className="text-muted" style={{ fontStyle: 'italic', fontSize: '0.75rem' }}>None</span>
+                          <span className="text-muted text-xs italic">—</span>
                         )}
                       </td>
                       <td>
-                        <span className="timestamp-text">
+                        <span className="font-mono text-xs text-muted">
                           {adj.createdAt ? new Date(adj.createdAt).toLocaleString() : '—'}
                         </span>
                       </td>
@@ -357,16 +358,14 @@ export default function LeaveAdjustments() {
         )}
       </div>
 
-      {/* Modal for creating leave adjustment */}
+      {/* Create Adjustment Modal */}
       {showModal && (
         <div className="modal-backdrop">
-          <div className="modal-container" style={{ maxWidth: '520px' }}>
+          <div className="modal-container max-w-lg">
             <div className="modal-header">
               <div>
-                <h3 className="modal-title">Apply Leave Adjustment</h3>
-                <p className="modal-subtitle">
-                  Balance adjustments directly alter entitlement quotas and are immutably audited.
-                </p>
+                <h3 className="modal-title">Manual Balance Adjustment</h3>
+                <p className="modal-subtitle">Directly credit or debit an employee's leave quota with audit justification</p>
               </div>
               <button
                 type="button"
@@ -377,18 +376,16 @@ export default function LeaveAdjustments() {
                 &times;
               </button>
             </div>
-
             <form onSubmit={handleSubmitAdjustment}>
-              <div className="modal-body">
-                <div className="form-group mb-3">
-                  <label className="form-label">Employee *</label>
+              <div className="modal-body space-y-4">
+                <FormField label="Target Employee" required htmlFor="adjEmp">
                   <select
+                    id="adjEmp"
+                    className="form-control text-xs"
                     value={form.employeeId}
                     onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
-                    className="form-control"
                     required
                   >
-                    <option value="">Select Employee</option>
                     {employees.map((emp) => {
                       const empDisplay = emp.name || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Unknown';
                       const empCode = emp.employeeId ? ` (${emp.employeeId})` : '';
@@ -400,108 +397,95 @@ export default function LeaveAdjustments() {
                       );
                     })}
                   </select>
-                </div>
+                </FormField>
 
-                <div className="form-group mb-3">
-                  <label className="form-label">Leave Type *</label>
+                <FormField label="Leave Category" required htmlFor="adjLt">
                   <select
+                    id="adjLt"
+                    className="form-control text-xs"
                     value={form.leaveTypeId}
                     onChange={(e) => setForm({ ...form, leaveTypeId: e.target.value })}
-                    className="form-control"
                     required
                   >
-                    <option value="">Select Leave Type</option>
                     {leaveTypes.map((lt) => (
                       <option key={lt.id} value={lt.id}>
-                        {lt.name} (Default: {lt.defaultDays} days)
+                        {lt.name}
                       </option>
                     ))}
                   </select>
-                </div>
+                </FormField>
 
-                {/* Current balance preview */}
-                {form.employeeId && form.leaveTypeId && (
-                  <div
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: 'var(--radius-sm)',
-                      backgroundColor: 'var(--primary-light)',
-                      border: '1px solid var(--primary-border)',
-                      fontSize: '0.8125rem',
-                      color: 'var(--primary)',
-                      marginBottom: '14px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span>Current Quota Status:</span>
-                    {loadingBalance ? (
-                      <span style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>Checking...</span>
-                    ) : selectedBalance ? (
-                      <span style={{ fontWeight: 600 }}>
-                        Entitled: {selectedBalance.entitlement}d | Used: {selectedBalance.usedDays}d | Remaining:{' '}
-                        <strong>{selectedBalance.remainingBalance}d</strong>
-                      </span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>No record yet (will initialize)</span>
-                    )}
+                {/* Live Current Balance Preview */}
+                {selectedBalance && (
+                  <div className="p-3 rounded-lg border text-xs flex justify-between items-center" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                    <span className="text-secondary">Current Balance for this category:</span>
+                    <span className="font-mono font-bold text-primary">
+                      {selectedBalance.remainingBalance} Days remaining / {selectedBalance.entitlement} Days total
+                    </span>
                   </div>
                 )}
 
-                <div className="form-group mb-3">
-                  <label className="form-label">Adjustment Days * (e.g. +3 or -2)</label>
+                <FormField
+                  label="Adjustment Days"
+                  required
+                  htmlFor="adjDays"
+                  hint="Enter a positive integer (e.g., 5) to grant additional days, or negative (e.g., -3) to deduct days."
+                >
                   <input
+                    id="adjDays"
                     type="number"
-                    step="1"
+                    className="form-control text-xs font-mono font-bold"
+                    placeholder="e.g. 5 or -3"
                     value={form.adjustmentDays}
                     onChange={(e) => setForm({ ...form, adjustmentDays: e.target.value })}
-                    placeholder="Enter positive integer to credit, negative to deduct"
-                    className="form-control"
                     required
                   />
-                  <span className="form-help-text">Use positive values (e.g. 5) to add days, or negative (e.g. -2) to reduce.</span>
-                </div>
+                </FormField>
 
-                <div className="form-group mb-3">
-                  <label className="form-label">Reason *</label>
+                <FormField
+                  label="Reason / Managerial Authorization"
+                  required
+                  htmlFor="adjReason"
+                  hint="Explain why this adjustment is made (e.g., Overtime comp-time compensation, sabbatical deduction)."
+                >
                   <textarea
-                    rows="2"
+                    id="adjReason"
+                    className="form-control text-xs"
+                    rows={2}
+                    placeholder="Document the justification for this quota change..."
                     value={form.reason}
                     onChange={(e) => setForm({ ...form, reason: e.target.value })}
-                    placeholder="Reason for adjustment (required for accountability)"
-                    className="form-control"
                     required
                   />
-                </div>
+                </FormField>
 
-                <div className="form-group">
-                  <label className="form-label">Reference (Optional)</label>
+                <FormField label="Reference Document / Ticket (Optional)" htmlFor="adjRef">
                   <input
+                    id="adjRef"
                     type="text"
+                    className="form-control text-xs"
+                    placeholder="e.g. HR-2026-089 or COMP-TICKET-44"
                     value={form.reference}
                     onChange={(e) => setForm({ ...form, reference: e.target.value })}
-                    placeholder="HR Ticket / Approval ref (e.g. TICKET-1049)"
-                    className="form-control"
                   />
-                </div>
+                </FormField>
               </div>
 
-              <div className="modal-actions">
+              <div className="modal-actions pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
                 <button
                   type="button"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => setShowModal(false)}
-                  className="btn btn-secondary"
                   disabled={submitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  className="btn btn-primary btn-sm"
                   disabled={submitting}
-                  className="btn btn-primary"
                 >
-                  {submitting ? 'Applying...' : 'Apply Adjustment'}
+                  {submitting ? 'Applying Adjustment...' : 'Confirm Adjustment'}
                 </button>
               </div>
             </form>

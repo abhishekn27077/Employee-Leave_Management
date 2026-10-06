@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { leavePolicyApi, leaveTypeApi, departmentApi, extractErrorMessage } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
+import StatCard from '../components/StatCard';
+import SkeletonLoader from '../components/SkeletonLoader';
+import FormField from '../components/FormField';
 import {
   IconLeaves,
   IconPlus,
   IconSearch,
   IconRefresh,
   IconCheck,
+  IconCalendar,
+  IconCheckCircle,
 } from '../components/Icons';
 
 function LeavePolicies() {
@@ -103,105 +107,102 @@ function LeavePolicies() {
   const approvalRequiredCount = policies.filter((p) => p.requiresApproval).length;
 
   return (
-    <div className="leave-policies-page">
+    <div className="leave-policies-page space-y-6">
       <PageHeader
         title="Leave Policy Governance"
-        subtitle="Configure organizational entitlement quotas, department-specific overrides, consecutive day limits, and approval rules"
+        subtitle="Configure organizational entitlement quotas, departmental overrides, consecutive day limits, and approval mandates."
         badge={`${policies.length} Policy Rules`}
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={fetchData}
               disabled={loading}
             >
-              <IconRefresh size={16} />
+              <IconRefresh size={14} className={loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm"
               onClick={() => setShowPolicyModal(true)}
             >
-              <IconPlus size={16} />
+              <IconPlus size={14} />
               <span>Add Policy Rule</span>
             </button>
-          </>
+          </div>
         }
       />
 
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
       <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />
 
-      {/* KPI Summary Cards */}
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-card">
-          <span className="stat-label">Total Policy Rules</span>
-          <span className="stat-value">{policies.length} <small style={{ fontSize: '1rem', fontWeight: 500 }}>Active</small></span>
-          <span className="stat-helper">Across all categories & scopes</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Scope Breakdown</span>
-          <span className="stat-value" style={{ color: 'var(--primary-color, #4f46e5)' }}>
-            {globalCount} <small style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>Global /</small> {deptSpecificCount} <small style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-muted)' }}>Dept</small>
-          </span>
-          <span className="stat-helper">Global base vs departmental overrides</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Approval Governance</span>
-          <span className="stat-value" style={{ color: 'var(--emerald-500, #10b981)' }}>
-            {approvalRequiredCount} <small style={{ fontSize: '1rem', fontWeight: 500 }}>Rules</small>
-          </span>
-          <span className="stat-helper">Mandatory manager approval enforced</span>
-        </div>
+      {/* KPI Summary Cards - Compact SaaS Proportions */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <StatCard
+          label="Total Policy Rules"
+          value={policies.length}
+          unit="rules"
+          subtext="Active policy configurations"
+          icon={<IconLeaves size={16} />}
+          tone="slate"
+        />
+
+        <StatCard
+          label="Scope Breakdown"
+          value={`${globalCount} / ${deptSpecificCount}`}
+          subtext="Global base vs departmental overrides"
+          icon={<IconCalendar size={16} />}
+          tone="primary"
+        />
+
+        <StatCard
+          label="Approval Governance"
+          value={approvalRequiredCount}
+          unit="enforced"
+          subtext="Rules mandating manager authorization"
+          icon={<IconCheckCircle size={16} />}
+          tone="emerald"
+        />
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="content-card" style={{ marginBottom: '1.5rem' }}>
-        <div className="card-header" style={{ padding: '1rem 1.25rem' }}>
-          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', width: '100%', alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1, minWidth: '220px' }}>
-              <IconSearch size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input
-                type="text"
-                className="form-input"
-                style={{ paddingLeft: '36px', height: '40px' }}
-                placeholder="Search policy by leave category or department..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div style={{ minWidth: '180px' }}>
-              <select
-                className="form-select"
-                style={{ height: '40px' }}
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-              >
-                <option value="ALL">All Scopes</option>
-                <option value="GLOBAL">Global Only</option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={String(dept.id)}>
-                    {dept.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+      <div className="card-modern">
+        <div className="p-4 border-b flex items-center justify-between flex-wrap gap-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="search-input-wrapper flex-1 min-w-[240px]">
+            <IconSearch size={14} className="search-icon" />
+            <input
+              type="text"
+              className="search-input text-xs"
+              placeholder="Search policy by leave category or department..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="min-w-[180px]">
+            <select
+              className="form-control text-xs"
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+            >
+              <option value="ALL">All Scopes</option>
+              <option value="GLOBAL">Global Only</option>
+              {departments.map((dept) => (
+                <option key={dept.id} value={String(dept.id)}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
-      </div>
 
-      {/* Main Table Card */}
-      <div className="content-card">
         {loading ? (
-          <div style={{ padding: '3rem', textAlign: 'center' }}>
-            <LoadingSpinner size="lg" />
-            <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Loading leave policy rules...</p>
+          <div className="p-6">
+            <SkeletonLoader variant="table" count={5} />
           </div>
         ) : filteredPolicies.length === 0 ? (
           <EmptyState
-            icon={<IconLeaves size={36} className="text-muted" />}
             title="No policy rules found"
             description={
               searchTerm || deptFilter !== 'ALL'
@@ -212,8 +213,8 @@ function LeavePolicies() {
             onAction={() => setShowPolicyModal(true)}
           />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
                   <th>Leave Category</th>
@@ -227,28 +228,28 @@ function LeavePolicies() {
                 {filteredPolicies.map((p) => (
                   <tr key={p.id}>
                     <td>
-                      <span className="policy-badge">{p.leaveType?.name || 'Leave Type'}</span>
+                      <span className="font-semibold text-primary text-xs">{p.leaveType?.name || 'Leave Type'}</span>
                     </td>
                     <td>
-                      <span className="dept-tag-sm">
+                      <span className="text-secondary text-xs">
                         {p.department?.name || 'All Departments (Global)'}
                       </span>
                     </td>
                     <td>
-                      <span className="duration-pill" style={{ fontWeight: 600 }}>
+                      <span className="font-mono font-semibold text-xs text-primary">
                         {p.entitlement} Days
                       </span>
                     </td>
                     <td>
-                      <span>{p.maxConsecutiveDays ? `${p.maxConsecutiveDays} Days` : 'No Limit'}</span>
+                      <span className="font-mono text-xs text-secondary">{p.maxConsecutiveDays ? `${p.maxConsecutiveDays} Days` : 'No Limit'}</span>
                     </td>
                     <td>
                       {p.requiresApproval ? (
-                        <span style={{ color: 'var(--emerald-600, #059669)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <IconCheck size={14} /> Yes
+                        <span className="text-xs font-semibold flex items-center gap-1" style={{ color: 'var(--color-success)' }}>
+                          <IconCheck size={13} /> Yes
                         </span>
                       ) : (
-                        <span style={{ color: 'var(--text-muted, #64748b)' }}>No</span>
+                        <span className="text-xs text-muted">No</span>
                       )}
                     </td>
                   </tr>
@@ -262,9 +263,12 @@ function LeavePolicies() {
       {/* Add Policy Modal */}
       {showPolicyModal && (
         <div className="modal-backdrop">
-          <div className="modal-dialog">
+          <div className="modal-container max-w-md">
             <div className="modal-header">
-              <h3 className="modal-title">Configure Leave Policy Rule</h3>
+              <div>
+                <h3 className="modal-title">Configure Leave Policy Rule</h3>
+                <p className="modal-subtitle">Define entitlement quotas and approval requirements</p>
+              </div>
               <button
                 type="button"
                 className="modal-close-btn"
@@ -274,11 +278,11 @@ function LeavePolicies() {
               </button>
             </div>
             <form onSubmit={handleCreatePolicy}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Leave Category *</label>
+              <div className="modal-body space-y-4">
+                <FormField label="Leave Category" required htmlFor="polLt">
                   <select
-                    className="form-select"
+                    id="polLt"
+                    className="form-control text-xs"
                     value={policyForm.leaveTypeId}
                     onChange={(e) => setPolicyForm({ ...policyForm, leaveTypeId: e.target.value })}
                     required
@@ -289,65 +293,71 @@ function LeavePolicies() {
                       </option>
                     ))}
                   </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Department Scope (Optional — default is Global)</label>
+                </FormField>
+
+                <FormField label="Department Scope" htmlFor="polDept" hint="Leave as Global for all departments unless creating a department-specific override.">
                   <select
-                    className="form-select"
+                    id="polDept"
+                    className="form-control text-xs"
                     value={policyForm.departmentId}
                     onChange={(e) => setPolicyForm({ ...policyForm, departmentId: e.target.value })}
                   >
-                    <option value="">All Departments (Global)</option>
+                    <option value="">All Departments (Global Base)</option>
                     {departments.map((dept) => (
                       <option key={dept.id} value={dept.id}>
                         {dept.name}
                       </option>
                     ))}
                   </select>
+                </FormField>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Annual Entitlement" required htmlFor="polEnt">
+                    <input
+                      id="polEnt"
+                      type="number"
+                      className="form-control text-xs"
+                      min="1"
+                      placeholder="e.g. 20"
+                      value={policyForm.entitlement}
+                      onChange={(e) => setPolicyForm({ ...policyForm, entitlement: e.target.value })}
+                      required
+                    />
+                  </FormField>
+
+                  <FormField label="Max Consecutive Days" htmlFor="polMax">
+                    <input
+                      id="polMax"
+                      type="number"
+                      className="form-control text-xs"
+                      min="1"
+                      placeholder="No limit"
+                      value={policyForm.maxConsecutiveDays}
+                      onChange={(e) => setPolicyForm({ ...policyForm, maxConsecutiveDays: e.target.value })}
+                    />
+                  </FormField>
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Annual Entitlement Days *</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    min="1"
-                    placeholder="e.g. 20"
-                    value={policyForm.entitlement}
-                    onChange={(e) => setPolicyForm({ ...policyForm, entitlement: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Max Consecutive Days</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    min="1"
-                    placeholder="e.g. 10 (Leave blank for no limit)"
-                    value={policyForm.maxConsecutiveDays}
-                    onChange={(e) => setPolicyForm({ ...policyForm, maxConsecutiveDays: e.target.value })}
-                  />
-                </div>
-                <div className="form-group" style={{ marginTop: '0.5rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+
+                <div className="pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs">
                     <input
                       type="checkbox"
                       checked={policyForm.requiresApproval}
                       onChange={(e) => setPolicyForm({ ...policyForm, requiresApproval: e.target.checked })}
                     />
-                    <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Requires managerial approval</span>
+                    <span className="font-medium text-primary">Mandatory managerial approval required</span>
                   </label>
                 </div>
               </div>
-              <div className="modal-footer">
+              <div className="modal-actions pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => setShowPolicyModal(false)}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">
+                <button type="submit" className="btn btn-primary btn-sm">
                   Save Policy Rule
                 </button>
               </div>

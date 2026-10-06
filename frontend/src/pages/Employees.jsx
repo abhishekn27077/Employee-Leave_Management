@@ -9,13 +9,16 @@ import {
   availabilityApi,
   extractErrorMessage,
 } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import Avatar from '../components/Avatar';
+import StatCard from '../components/StatCard';
+import SkeletonLoader from '../components/SkeletonLoader';
+import FormField from '../components/FormField';
+import StatusBadge from '../components/StatusBadge';
 import {
   IconEmployees,
   IconPlus,
@@ -26,6 +29,9 @@ import {
   IconCalendar,
   IconClock,
   IconInfo,
+  IconCheck,
+  IconLeaves,
+  IconCheckCircle,
 } from '../components/Icons';
 
 function Employees() {
@@ -74,7 +80,6 @@ function Employees() {
     setError('');
     try {
       if (isManager && user?.departmentId) {
-        // Manager workspace: load team members, department availability, and department leaves
         const [empRes, deptRes, availRes, leavesRes] = await Promise.all([
           employeeApi.getAll(),
           departmentApi.getAll(),
@@ -86,7 +91,6 @@ function Employees() {
         setTeamAvailability(availRes?.data || null);
         setDepartmentLeaves(leavesRes?.data || []);
       } else {
-        // HR_ADMIN or general workforce directory
         const [empRes, deptRes] = await Promise.all([
           employeeApi.getAll(),
           departmentApi.getAll(),
@@ -175,11 +179,6 @@ function Employees() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.employeeId.trim() || !formData.name.trim() || !formData.email.trim() || !formData.departmentId) {
-      setError('Please fill in all mandatory fields: Employee ID, Name, Email, and Department.');
-      return;
-    }
-
     setActionLoading(true);
     setError('');
     setSuccess('');
@@ -191,7 +190,7 @@ function Employees() {
       phone: formData.phone.trim() || null,
       designation: formData.designation.trim() || null,
       joiningDate: formData.joiningDate || null,
-      departmentId: Number(formData.departmentId),
+      department: formData.departmentId ? { id: Number(formData.departmentId) } : null,
     };
 
     try {
@@ -231,7 +230,6 @@ function Employees() {
     }
   };
 
-  // Filtered employees list
   const filteredEmployees = employees.filter((emp) => {
     const matchesSearch =
       (emp.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -244,7 +242,6 @@ function Employees() {
     return matchesSearch && matchesDept;
   });
 
-  // Manager helpers for availability and upcoming leave
   const getEmployeeAvailabilityStatus = (empId) => {
     if (!teamAvailability) return { onLeave: false };
     const onLeaveItem = teamAvailability.onLeaveEmployees?.find((e) => e.id === empId);
@@ -266,30 +263,14 @@ function Employees() {
     return upcoming.length > 0 ? upcoming[0] : null;
   };
 
-  // Status badge styling helper
-  const getLeaveStatusBadge = (status) => {
-    switch (status) {
-      case 'APPROVED':
-        return <span className="status-badge status-approved">Approved</span>;
-      case 'PENDING':
-        return <span className="status-badge status-pending">Pending</span>;
-      case 'REJECTED':
-        return <span className="status-badge status-rejected">Rejected</span>;
-      case 'CANCELLED':
-        return <span className="status-badge status-cancelled">Cancelled</span>;
-      default:
-        return <span className="status-badge status-draft">{status}</span>;
-    }
-  };
-
   return (
-    <div className="employees-page">
+    <div className="employees-page space-y-6">
       <PageHeader
         title={isManager ? 'My Team' : 'Employee Directory'}
         subtitle={
           isManager
             ? `Department Team Workspace • ${user?.departmentName || 'Your Department'}`
-            : 'Corporate workforce directory, departmental reporting relationships & profile records'
+            : 'Corporate workforce directory, departmental reporting assignments, and profile records.'
         }
         badge={
           isManager
@@ -297,37 +278,37 @@ function Employees() {
             : `${employees.length} Staff`
         }
         actions={
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={fetchData}
               disabled={loading || actionLoading}
             >
-              <IconRefresh size={16} />
+              <IconRefresh size={14} className={loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
             {isManager && (
               <>
-                <Link to="/availability" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
-                  <IconCalendar size={16} />
+                <Link to="/availability" className="btn btn-secondary btn-sm">
+                  <IconCalendar size={14} />
                   <span>Team Availability</span>
                 </Link>
-                <Link to="/leaves?scope=approvals" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
-                  <IconClock size={16} />
-                  <span>Leave Approvals</span>
+                <Link to="/leaves?scope=approvals" className="btn btn-primary btn-sm">
+                  <IconClock size={14} />
+                  <span>Approval Queue</span>
                 </Link>
               </>
             )}
             {isHrAdmin && (
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 onClick={openCreateModal}
                 disabled={departments.length === 0}
                 title={departments.length === 0 ? 'Create a department first' : ''}
               >
-                <IconPlus size={16} />
+                <IconPlus size={14} />
                 <span>Register Employee</span>
               </button>
             )}
@@ -338,114 +319,76 @@ function Employees() {
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
       <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />
 
-      {/* Manager Team Availability Metrics Card */}
+      {/* Manager Team Availability Metrics Card - Compact SaaS Proportions */}
       {isManager && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '1rem',
-            marginBottom: '1.25rem',
-          }}
-        >
-          <div className="content-card" style={{ padding: '1.125rem' }}>
-            <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Total Department Staff
-            </span>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', marginTop: '0.25rem' }}>
-              {teamAvailability?.totalEmployees ?? employees.length}
-            </div>
-            <span style={{ fontSize: '0.75rem', color: '#475569' }}>
-              Assigned to {user?.departmentName || 'Department'}
-            </span>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <StatCard
+            label="Total Team Staff"
+            value={teamAvailability?.totalEmployees ?? employees.length}
+            unit="staff"
+            subtext={`Assigned to ${user?.departmentName || 'Department'}`}
+            icon={<IconEmployees size={16} />}
+            tone="slate"
+          />
 
-          <div className="content-card" style={{ padding: '1.125rem' }}>
-            <span style={{ fontSize: '0.6875rem', color: '#047857', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Present &amp; Available Today
-            </span>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#059669', marginTop: '0.25rem' }}>
-              {teamAvailability?.availableCount ?? (employees.length - (teamAvailability?.onLeaveCount || 0))}
-            </div>
-            <span style={{ fontSize: '0.75rem', color: '#059669' }}>
-              Actively on duty
-            </span>
-          </div>
+          <StatCard
+            label="Present & On Duty"
+            value={teamAvailability?.availableCount ?? (employees.length - (teamAvailability?.onLeaveCount || 0))}
+            unit="active"
+            subtext="Actively on duty"
+            icon={<IconCheck size={16} />}
+            tone="emerald"
+          />
 
-          <div className="content-card" style={{ padding: '1.125rem' }}>
-            <span style={{ fontSize: '0.6875rem', color: '#b45309', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              On Approved Leave Today
-            </span>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#d97706', marginTop: '0.25rem' }}>
-              {teamAvailability?.onLeaveCount ?? 0}
-            </div>
-            <span style={{ fontSize: '0.75rem', color: '#b45309' }}>
-              Out of office
-            </span>
-          </div>
+          <StatCard
+            label="On Leave Today"
+            value={teamAvailability?.onLeaveCount ?? 0}
+            unit="absent"
+            subtext="Scheduled absences"
+            icon={<IconLeaves size={16} />}
+            tone={(teamAvailability?.onLeaveCount ?? 0) > 0 ? "amber" : "slate"}
+          />
 
-          <div className="content-card" style={{ padding: '1.125rem' }}>
-            <span style={{ fontSize: '0.6875rem', color: '#2563eb', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Team Availability Rate
-            </span>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#2563eb', marginTop: '0.25rem' }}>
-              {teamAvailability?.availabilityPercentage != null
-                ? `${Math.round(teamAvailability.availabilityPercentage)}%`
-                : '100%'}
-            </div>
-            <span style={{ fontSize: '0.75rem', color: '#2563eb' }}>
-              Real-time calculation
-            </span>
-          </div>
+          <StatCard
+            label="Capacity Rate"
+            value={teamAvailability?.availabilityPercentage != null ? `${Math.round(teamAvailability.availabilityPercentage)}%` : '100%'}
+            subtext="Real-time duty ratio"
+            icon={<IconCheckCircle size={16} />}
+            tone="primary"
+          />
         </div>
       )}
 
       {/* Scope banner */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '0.5rem',
-          padding: '0.625rem 1rem',
-          backgroundColor: isManager ? '#f0fdf4' : '#f8fafc',
-          border: `1px solid ${isManager ? '#bbf7d0' : '#e2e8f0'}`,
-          borderRadius: '0.625rem',
-          marginBottom: '1.25rem',
-          fontSize: '0.8125rem',
-          color: isManager ? '#166534' : '#475569',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>{isManager ? '🛡️' : '🌐'}</span>
-          <span>
-            <strong>Scope:</strong>{' '}
+      <div className="p-3 rounded-lg border flex items-center justify-between flex-wrap gap-2 text-xs" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] uppercase font-bold px-2 py-0.5 rounded" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
+            Scope
+          </span>
+          <span className="text-secondary">
             {isManager
-              ? `Department Team Scope — Backend strictly limits view to ${user?.departmentName || 'your department'}.`
+              ? `Department Team Scope — Filtered strictly to ${user?.departmentName || 'your department'}.`
               : 'Organization-wide Directory — HR Administrator authority.'}
           </span>
         </div>
-        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-          Date: {todayStr}
-        </span>
+        <span className="text-muted font-mono">Date: {todayStr}</span>
       </div>
 
       {departments.length === 0 && !loading && isHrAdmin && (
-        <div className="alert-banner alert-warning mb-4">
-          <span>⚠️ No departments configured. You must create at least one department before registering employees.</span>
+        <div className="p-3 rounded-lg border text-xs font-medium" style={{ background: 'var(--color-warning-light)', borderColor: 'var(--color-warning)', color: 'var(--color-warning)' }}>
+          No departments configured. You must create at least one department before registering employees.
         </div>
       )}
 
       {/* Search & Filter Toolbar */}
-      <div className="content-card">
-        <div className="card-toolbar card-toolbar-multi">
-          <div className="search-input-wrapper">
-            <IconSearch size={16} className="search-icon" />
+      <div className="card-modern">
+        <div className="p-4 border-b flex items-center justify-between flex-wrap gap-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="search-input-wrapper flex-1 min-w-[240px]">
+            <IconSearch size={14} className="search-icon" />
             <input
               type="text"
-              className="search-input"
-              placeholder={isManager ? "Search team members by name, ID, or designation..." : "Search by name, ID, designation, or email..."}
+              className="search-input text-xs"
+              placeholder={isManager ? "Search team members by name, ID, designation..." : "Search by name, ID, designation, email..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -461,55 +404,53 @@ function Employees() {
             )}
           </div>
 
-          <div className="toolbar-filter-group">
+          <div className="flex items-center gap-3">
             {isHrAdmin && (
-              <>
-                <label htmlFor="deptFilter" className="sr-only">Filter by Department</label>
-                <select
-                  id="deptFilter"
-                  className="toolbar-select"
-                  value={deptFilter}
-                  onChange={(e) => setDeptFilter(e.target.value)}
-                >
-                  <option value="">All Departments ({departments.length})</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={String(d.id)}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </>
+              <select
+                id="deptFilter"
+                className="form-control text-xs min-w-[180px]"
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+              >
+                <option value="">All Departments ({departments.length})</option>
+                {departments.map((d) => (
+                  <option key={d.id} value={String(d.id)}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
             )}
 
-            <span className="toolbar-count">
-              Showing {filteredEmployees.length} of {employees.length}
+            <span className="text-xs text-muted font-mono">
+              {filteredEmployees.length} of {employees.length}
             </span>
           </div>
         </div>
 
         {loading ? (
-          <LoadingSpinner message={isManager ? "Loading team workspace..." : "Loading employee directory..."} />
+          <div className="p-6">
+            <SkeletonLoader variant="table" count={6} />
+          </div>
         ) : filteredEmployees.length === 0 ? (
           <EmptyState
-            icon={<IconEmployees size={36} className="text-muted" />}
             title={searchTerm || deptFilter ? 'No matching team members' : 'No employees in this scope'}
             description={
               searchTerm || deptFilter
-                ? 'No employee profiles match the chosen search or department filter. Try resetting filters.'
+                ? 'No employee profiles match the chosen search or department filter.'
                 : isManager
                 ? 'No employees are currently assigned to your department.'
                 : 'Get started by creating your first employee profile and linking them to a department.'
             }
-            actionText={searchTerm || deptFilter || isManager ? null : 'Register First Employee'}
-            onAction={searchTerm || deptFilter || isManager ? null : openCreateModal}
+            actionText={searchTerm || deptFilter || isManager ? undefined : 'Register First Employee'}
+            onAction={searchTerm || deptFilter || isManager ? undefined : openCreateModal}
           />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
                   <th style={{ width: '100px' }}>Staff ID</th>
-                  <th>Employee Name &amp; Email</th>
+                  <th>Employee Name & Email</th>
                   {isHrAdmin && <th>Department</th>}
                   <th>Designation</th>
                   {isManager ? (
@@ -534,109 +475,75 @@ function Employees() {
                   return (
                     <tr key={emp.id}>
                       <td>
-                        <span className="code-pill code-pill-emp">{emp.employeeId}</span>
+                        <span className="font-mono text-xs font-semibold text-primary">{emp.employeeId}</span>
                       </td>
                       <td>
-                        <div className="employee-cell-avatar">
-                          <Avatar name={emp.name} size={34} />
-                          <div className="employee-info-cell">
-                            <span className="employee-primary-name">{emp.name}</span>
-                            <span className="employee-email">{emp.email}</span>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={emp.name} size="sm" />
+                          <div>
+                            <span className="font-semibold text-primary text-xs block">{emp.name}</span>
+                            <span className="text-[11px] text-muted">{emp.email}</span>
                           </div>
                         </div>
                       </td>
                       {isHrAdmin && (
                         <td>
-                          <span className="dept-tag">
+                          <span className="text-secondary text-xs">
                             {emp.department?.name || 'Unassigned'}
                           </span>
                         </td>
                       )}
                       <td>
-                        <span className="designation-text">{emp.designation || 'Staff'}</span>
+                        <span className="text-xs text-primary font-medium">{emp.designation || 'Staff'}</span>
                       </td>
 
                       {isManager ? (
                         <>
                           <td>
                             {availability?.onLeave ? (
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '0.375rem',
-                                  padding: '0.2rem 0.5rem',
-                                  borderRadius: '0.375rem',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 600,
-                                  backgroundColor: '#fef3c7',
-                                  color: '#b45309',
-                                  border: '1px solid #fde68a',
-                                }}
-                                title={availability.reason ? `Reason: ${availability.reason}` : 'On approved leave'}
-                              >
-                                <span>🏖️</span>
-                                <span>On Leave: {availability.leaveType || 'Approved'}</span>
+                              <span className="px-2 py-0.5 rounded text-[11px] font-semibold" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)', border: '1px solid var(--color-warning)' }}>
+                                On Leave: {availability.leaveType || 'Approved'}
                               </span>
                             ) : (
-                              <span
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '0.375rem',
-                                  padding: '0.2rem 0.5rem',
-                                  borderRadius: '0.375rem',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 600,
-                                  backgroundColor: '#ecfdf5',
-                                  color: '#047857',
-                                  border: '1px solid #a7f3d0',
-                                }}
-                              >
-                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-                                <span>Available / Working</span>
+                              <span className="px-2 py-0.5 rounded text-[11px] font-semibold" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)', border: '1px solid var(--color-success)' }}>
+                                Active on Duty
                               </span>
                             )}
                           </td>
                           <td>
                             {upcomingLeave ? (
-                              <div style={{ fontSize: '0.75rem', color: '#1e293b' }}>
-                                <span style={{ fontWeight: 600, color: '#2563eb' }}>
+                              <div className="text-xs text-secondary">
+                                <span className="font-semibold text-primary">
                                   {upcomingLeave.leaveType?.name || 'Leave'}:
                                 </span>{' '}
-                                <span>{upcomingLeave.startDate} to {upcomingLeave.endDate}</span>{' '}
-                                <span style={{ color: '#64748b' }}>({upcomingLeave.numberOfDays}d)</span>
+                                <span className="font-mono">{upcomingLeave.startDate} to {upcomingLeave.endDate}</span>{' '}
+                                <span className="text-muted font-mono">({upcomingLeave.numberOfDays || upcomingLeave.days}d)</span>
                               </div>
                             ) : (
-                              <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                None scheduled
-                              </span>
+                              <span className="text-xs text-muted">None scheduled</span>
                             )}
                           </td>
                         </>
                       ) : (
                         <>
                           <td>
-                            <span className="phone-text">{emp.phone || '—'}</span>
+                            <span className="text-xs font-mono text-secondary">{emp.phone || '—'}</span>
                           </td>
                           <td>
-                            <div className="date-cell">
-                              <IconCalendar size={13} className="text-muted" />
-                              <span>{emp.joiningDate || '—'}</span>
-                            </div>
+                            <span className="text-xs font-mono text-secondary">{emp.joiningDate || '—'}</span>
                           </td>
                         </>
                       )}
 
                       <td style={{ textAlign: 'right' }}>
-                        <div className="table-actions">
+                        <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            className="btn-action btn-action-view"
+                            className="btn btn-secondary btn-sm text-[11px] py-1 px-2"
                             onClick={() => openDetailModal(emp)}
-                            title="View complete employee profile & leave summary"
+                            title="View profile & leave summary"
                           >
-                            <IconInfo size={14} />
+                            <IconInfo size={12} />
                             <span>Details</span>
                           </button>
 
@@ -644,20 +551,20 @@ function Employees() {
                             <>
                               <button
                                 type="button"
-                                className="btn-action btn-action-edit"
+                                className="btn btn-secondary btn-sm text-[11px] py-1 px-2"
                                 onClick={() => openEditModal(emp)}
-                                title="Edit employee record"
+                                title="Edit profile"
                               >
-                                <IconEdit size={14} />
+                                <IconEdit size={12} />
                                 <span>Edit</span>
                               </button>
                               <button
                                 type="button"
-                                className="btn-action btn-action-delete"
+                                className="btn btn-danger btn-sm text-[11px] py-1 px-2"
                                 onClick={() => setDeleteTarget(emp)}
-                                title="Delete employee record"
+                                title="Delete profile"
                               >
-                                <IconTrash size={14} />
+                                <IconTrash size={12} />
                                 <span>Delete</span>
                               </button>
                             </>
@@ -673,102 +580,90 @@ function Employees() {
         )}
       </div>
 
-      {/* ========================================================= */}
-      {/* 5. HR_ADMIN & MANAGER — EMPLOYEE DETAIL INSPECTOR MODAL   */}
-      {/* ========================================================= */}
+      {/* EMPLOYEE DETAIL INSPECTOR MODAL */}
       <Modal
         isOpen={!!detailTarget}
-        title="Employee Overview &amp; Leave Profile"
-        subtitle={detailTarget ? `${detailTarget.name} (${detailTarget.employeeId}) • ${detailTarget.department?.name || 'Department'}` : ''}
+        title="Employee Profile & Quotas"
+        subtitle={detailTarget ? `${detailTarget.name} (${detailTarget.employeeId}) • ${detailTarget.department?.name || 'General'}` : ''}
         onClose={closeDetailModal}
-        maxWidth="800px"
+        maxWidth="750px"
       >
         {detailTarget && (
-          <div>
+          <div className="space-y-4">
             <AlertMessage type="error" message={detailError} onClose={() => setDetailError('')} />
 
-            {/* 1. EMPLOYEE OVERVIEW */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '1.25rem',
-                padding: '1.25rem',
-                backgroundColor: '#f8fafc',
-                borderRadius: '0.75rem',
-                border: '1px solid #e2e8f0',
-                marginBottom: '1.5rem',
-              }}
-            >
+            {/* Profile Overview Card */}
+            <div className="p-4 rounded-lg border flex items-center gap-4" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
               <Avatar name={detailTarget.name} size="lg" />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-bold text-primary m-0">
                     {detailTarget.name}
                   </h3>
-                  <span className="code-pill code-pill-emp">{detailTarget.employeeId}</span>
-                  <span className="dept-tag">{detailTarget.department?.name || 'Unassigned'}</span>
+                  <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded" style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+                    {detailTarget.employeeId}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
+                    {detailTarget.department?.name || 'Unassigned'}
+                  </span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem 1rem', marginTop: '0.75rem', fontSize: '0.8125rem' }}>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs">
                   <div>
-                    <span style={{ color: '#64748b' }}>Designation: </span>
-                    <strong style={{ color: '#1e293b' }}>{detailTarget.designation || 'Staff'}</strong>
+                    <span className="text-muted block text-[11px]">Designation</span>
+                    <span className="font-medium text-primary mt-0.5 block">{detailTarget.designation || 'Staff'}</span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b' }}>Email: </span>
-                    <strong style={{ color: '#1e293b', wordBreak: 'break-all' }}>{detailTarget.email}</strong>
+                    <span className="text-muted block text-[11px]">Email</span>
+                    <span className="font-medium text-primary mt-0.5 block truncate">{detailTarget.email}</span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b' }}>Phone: </span>
-                    <strong style={{ color: '#1e293b' }}>{detailTarget.phone || 'Not Provided'}</strong>
+                    <span className="text-muted block text-[11px]">Phone</span>
+                    <span className="font-mono text-primary mt-0.5 block">{detailTarget.phone || '—'}</span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b' }}>Joining Date: </span>
-                    <strong style={{ color: '#1e293b' }}>{detailTarget.joiningDate || 'Not Specified'}</strong>
+                    <span className="text-muted block text-[11px]">Joining Date</span>
+                    <span className="font-mono text-primary mt-0.5 block">{detailTarget.joiningDate || '—'}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Architectural Note regarding Model Fields */}
-            <div style={{ padding: '0.625rem 0.875rem', backgroundColor: '#f1f5f9', borderRadius: '0.5rem', border: '1px solid #cbd5e1', fontSize: '0.75rem', color: '#475569', marginBottom: '1.5rem' }}>
-              ℹ️ <em>Reporting Manager &amp; Employment Status:</em> Not currently represented in the existing Employee model.
-            </div>
-
             {detailLoading ? (
-              <LoadingSpinner message="Retrieving employee leave balances and history..." />
+              <div className="py-6">
+                <SkeletonLoader variant="lines" count={4} />
+              </div>
             ) : (
               <>
-                {/* 2. LEAVE SUMMARY */}
-                <div style={{ marginBottom: '1.5rem' }}>
-                  <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
-                    Leave Balances Summary
+                {/* Leave Balances Summary */}
+                <div>
+                  <h4 className="text-xs font-semibold text-secondary uppercase mb-2">
+                    Leave Quota Allocation
                   </h4>
 
                   {detailBalances.length === 0 ? (
-                    <div style={{ padding: '1rem', backgroundColor: '#fff', border: '1px dashed #cbd5e1', borderRadius: '0.5rem', textAlign: 'center', fontSize: '0.8125rem', color: '#64748b' }}>
+                    <div className="p-4 rounded-lg border text-center text-xs text-muted" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
                       No leave balance allocations recorded for this employee yet.
                     </div>
                   ) : (
-                    <div className="table-responsive">
-                      <table className="data-table" style={{ fontSize: '0.8125rem' }}>
+                    <div className="table-wrapper-modern">
+                      <table className="table-modern">
                         <thead>
                           <tr>
-                            <th>Leave Type</th>
-                            <th style={{ textAlign: 'center' }}>Total Entitlement</th>
-                            <th style={{ textAlign: 'center' }}>Used Days</th>
-                            <th style={{ textAlign: 'center' }}>Remaining Balance</th>
+                            <th>Leave Category</th>
+                            <th style={{ textAlign: 'center' }}>Entitlement</th>
+                            <th style={{ textAlign: 'center' }}>Used</th>
+                            <th style={{ textAlign: 'center' }}>Remaining</th>
                           </tr>
                         </thead>
                         <tbody>
                           {detailBalances.map((bal) => (
                             <tr key={bal.id}>
                               <td>
-                                <strong>{bal.leaveType?.name || 'Leave'}</strong>
+                                <strong className="text-primary text-xs">{bal.leaveType?.name || 'Leave'}</strong>
                               </td>
-                              <td style={{ textAlign: 'center' }}>{bal.entitlement} days</td>
-                              <td style={{ textAlign: 'center', color: '#d97706', fontWeight: 600 }}>{bal.used} days</td>
-                              <td style={{ textAlign: 'center', color: '#047857', fontWeight: 700 }}>{bal.balance} days</td>
+                              <td style={{ textAlign: 'center' }} className="font-mono text-xs text-secondary">{bal.entitlement}d</td>
+                              <td style={{ textAlign: 'center', color: 'var(--color-warning)' }} className="font-mono text-xs font-medium">{bal.usedDays || bal.used || 0}d</td>
+                              <td style={{ textAlign: 'center', color: 'var(--color-success)' }} className="font-mono text-xs font-bold">{bal.remainingBalance || bal.balance || 0}d</td>
                             </tr>
                           ))}
                         </tbody>
@@ -777,23 +672,23 @@ function Employees() {
                   )}
                 </div>
 
-                {/* 3. LEAVE HISTORY */}
-                <div style={{ marginBottom: '1rem' }}>
-                  <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem' }}>
-                    Leave Application History ({detailLeaves.length})
+                {/* Leave History */}
+                <div>
+                  <h4 className="text-xs font-semibold text-secondary uppercase mb-2">
+                    Leave History ({detailLeaves.length})
                   </h4>
 
                   {detailLeaves.length === 0 ? (
-                    <div style={{ padding: '1rem', backgroundColor: '#fff', border: '1px dashed #cbd5e1', borderRadius: '0.5rem', textAlign: 'center', fontSize: '0.8125rem', color: '#64748b' }}>
+                    <div className="p-4 rounded-lg border text-center text-xs text-muted" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
                       No leave requests submitted by this employee.
                     </div>
                   ) : (
-                    <div className="table-responsive" style={{ maxHeight: '220px', overflowY: 'auto' }}>
-                      <table className="data-table" style={{ fontSize: '0.8125rem' }}>
+                    <div className="table-wrapper-modern max-h-48 overflow-y-auto">
+                      <table className="table-modern">
                         <thead>
                           <tr>
-                            <th>Type</th>
-                            <th>Dates</th>
+                            <th>Category</th>
+                            <th>Schedule</th>
                             <th style={{ textAlign: 'center' }}>Days</th>
                             <th>Status</th>
                             <th>Reason</th>
@@ -803,19 +698,19 @@ function Employees() {
                           {detailLeaves.map((leave) => (
                             <tr key={leave.id}>
                               <td>
-                                <strong>{leave.leaveType?.name || 'Leave'}</strong>
+                                <strong className="text-primary text-xs">{leave.leaveType?.name || 'Leave'}</strong>
+                              </td>
+                              <td className="text-xs font-mono text-secondary">
+                                {leave.startDate} &rarr; {leave.endDate}
+                              </td>
+                              <td style={{ textAlign: 'center' }} className="font-mono text-xs font-semibold">
+                                {leave.days || leave.numberOfDays}
                               </td>
                               <td>
-                                <span style={{ fontSize: '0.75rem' }}>
-                                  {leave.startDate} to {leave.endDate}
-                                </span>
+                                <StatusBadge status={leave.status} />
                               </td>
-                              <td style={{ textAlign: 'center', fontWeight: 600 }}>
-                                {leave.numberOfDays}
-                              </td>
-                              <td>{getLeaveStatusBadge(leave.status)}</td>
                               <td>
-                                <span style={{ fontSize: '0.75rem', color: '#475569' }}>
+                                <span className="text-xs text-muted truncate max-w-xs block" title={leave.reason}>
                                   {leave.reason || '—'}
                                 </span>
                               </td>
@@ -829,102 +724,85 @@ function Employees() {
               </>
             )}
 
-            <div className="modal-actions" style={{ marginTop: '1.5rem', borderTop: '1px solid #e2e8f0', paddingTop: '1rem' }}>
-              <button type="button" className="btn btn-secondary" onClick={closeDetailModal}>
-                Close
+            <div className="modal-actions border-t pt-3" style={{ borderColor: 'var(--color-border)' }}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={closeDetailModal}>
+                Close Inspector
               </button>
             </div>
           </div>
         )}
       </Modal>
 
-      {/* ========================================================= */}
-      {/* Employee Create / Edit Modal (HR_ADMIN only)              */}
-      {/* ========================================================= */}
+      {/* Employee Create / Edit Modal (HR_ADMIN only) */}
       {isHrAdmin && (
         <Modal
           isOpen={isModalOpen}
           title={editEmp ? 'Edit Employee Profile' : 'Register New Employee'}
           subtitle={editEmp ? `Updating record for ${editEmp.name} (${editEmp.employeeId})` : 'Create employee record with departmental assignment'}
           onClose={closeModal}
-          maxWidth="620px"
+          maxWidth="600px"
         >
-          <form onSubmit={handleSubmit}>
-            <div className="form-grid-2">
-              <div className="form-group mb-3">
-                <label className="form-label" htmlFor="employeeId">
-                  Employee ID <span className="text-danger">*</span>
-                </label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Staff Identifier (ID)" required htmlFor="employeeId">
                 <input
                   id="employeeId"
                   name="employeeId"
                   type="text"
-                  className="form-control"
+                  className="form-control text-xs"
                   placeholder="e.g. EMP100"
                   value={formData.employeeId}
                   onChange={handleChange}
                   required
                 />
-              </div>
+              </FormField>
 
-              <div className="form-group mb-3">
-                <label className="form-label" htmlFor="name">
-                  Full Legal Name <span className="text-danger">*</span>
-                </label>
+              <FormField label="Full Legal Name" required htmlFor="name">
                 <input
                   id="name"
                   name="name"
                   type="text"
-                  className="form-control"
-                  placeholder="e.g. Jane Doe"
+                  className="form-control text-xs"
+                  placeholder="e.g. Alex Morgan"
                   value={formData.name}
                   onChange={handleChange}
                   required
                 />
-              </div>
+              </FormField>
             </div>
 
-            <div className="form-grid-2">
-              <div className="form-group mb-3">
-                <label className="form-label" htmlFor="email">
-                  Corporate Email <span className="text-danger">*</span>
-                </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Corporate Email" required htmlFor="email">
                 <input
                   id="email"
                   name="email"
                   type="email"
-                  className="form-control"
-                  placeholder="e.g. jane.doe@company.com"
+                  className="form-control text-xs"
+                  placeholder="e.g. alex.morgan@company.com"
                   value={formData.email}
                   onChange={handleChange}
                   required
                 />
-              </div>
+              </FormField>
 
-              <div className="form-group mb-3">
-                <label className="form-label" htmlFor="phone">
-                  Phone Number
-                </label>
+              <FormField label="Contact Phone" htmlFor="phone">
                 <input
                   id="phone"
                   name="phone"
                   type="tel"
-                  className="form-control"
+                  className="form-control text-xs"
                   placeholder="e.g. 9876543210"
                   value={formData.phone}
                   onChange={handleChange}
                 />
-              </div>
+              </FormField>
             </div>
 
-            <div className="form-group mb-3">
-              <label className="form-label" htmlFor="departmentId">
-                Assigned Department <span className="text-danger">*</span>
-              </label>
+            <FormField label="Assigned Department" required htmlFor="departmentId">
               <select
                 id="departmentId"
                 name="departmentId"
-                className="form-control"
+                className="form-control text-xs"
                 value={formData.departmentId}
                 onChange={handleChange}
                 required
@@ -936,43 +814,37 @@ function Employees() {
                   </option>
                 ))}
               </select>
-            </div>
+            </FormField>
 
-            <div className="form-grid-2">
-              <div className="form-group mb-4">
-                <label className="form-label" htmlFor="designation">
-                  Designation / Job Title
-                </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Designation / Role" htmlFor="designation">
                 <input
                   id="designation"
                   name="designation"
                   type="text"
-                  className="form-control"
-                  placeholder="e.g. Senior Software Engineer"
+                  className="form-control text-xs"
+                  placeholder="e.g. Lead Engineer"
                   value={formData.designation}
                   onChange={handleChange}
                 />
-              </div>
+              </FormField>
 
-              <div className="form-group mb-4">
-                <label className="form-label" htmlFor="joiningDate">
-                  Joining Date
-                </label>
+              <FormField label="Commencement / Joining Date" htmlFor="joiningDate">
                 <input
                   id="joiningDate"
                   name="joiningDate"
                   type="date"
-                  className="form-control"
+                  className="form-control text-xs"
                   value={formData.joiningDate}
                   onChange={handleChange}
                 />
-              </div>
+              </FormField>
             </div>
 
-            <div className="modal-actions">
+            <div className="modal-actions pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-sm"
                 onClick={closeModal}
                 disabled={actionLoading}
               >
@@ -980,13 +852,13 @@ function Employees() {
               </button>
               <button
                 type="submit"
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 disabled={actionLoading}
               >
                 {actionLoading
                   ? 'Saving Record...'
                   : editEmp
-                  ? 'Update Employee'
+                  ? 'Update Profile'
                   : 'Register Employee'}
               </button>
             </div>
@@ -1001,7 +873,7 @@ function Employees() {
           title="Delete Employee Record"
           message={
             deleteTarget
-              ? `Are you sure you want to permanently remove employee "${deleteTarget.name}" (${deleteTarget.employeeId})? Any past leave history associated with this employee will be evaluated against database integrity rules.`
+              ? `Are you sure you want to permanently delete employee "${deleteTarget.name}" (${deleteTarget.employeeId})? This operation requires zero active dependencies.`
               : ''
           }
           confirmText="Delete Record"

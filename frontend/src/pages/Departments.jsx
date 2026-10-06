@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { departmentApi, extractErrorMessage } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import SkeletonLoader from '../components/SkeletonLoader';
+import FormField from '../components/FormField';
 import {
-  IconDepartments,
   IconPlus,
   IconSearch,
   IconEdit,
@@ -119,31 +119,31 @@ function Departments() {
   );
 
   return (
-    <div className="departments-page">
+    <div className="departments-page space-y-6">
       <PageHeader
         title="Department Directory"
-        subtitle="Organize company structure, administrative divisions, and business units"
+        subtitle="Manage organizational structure, business units, and departmental hierarchies."
         badge={`${departments.length} Units`}
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={fetchDepartments}
               disabled={loading || actionLoading}
             >
-              <IconRefresh size={16} />
+              <IconRefresh size={14} className={loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm"
               onClick={openCreateModal}
             >
-              <IconPlus size={16} />
+              <IconPlus size={14} />
               <span>Add Department</span>
             </button>
-          </>
+          </div>
         }
       />
 
@@ -151,13 +151,13 @@ function Departments() {
       <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />
 
       {/* Search and Table Card */}
-      <div className="content-card">
-        <div className="card-toolbar">
-          <div className="search-input-wrapper">
-            <IconSearch size={16} className="search-icon" />
+      <div className="card-modern">
+        <div className="p-4 border-b flex items-center justify-between flex-wrap gap-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="search-input-wrapper flex-1 min-w-[240px]">
+            <IconSearch size={14} className="search-icon" />
             <input
               type="text"
-              className="search-input"
+              className="search-input text-xs"
               placeholder="Filter departments by name..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -173,66 +173,63 @@ function Departments() {
               </button>
             )}
           </div>
-          <span className="toolbar-count">
-            Showing {filteredDepartments.length} of {departments.length}
+          <span className="text-xs text-muted font-mono">
+            {filteredDepartments.length} of {departments.length} units
           </span>
         </div>
 
         {loading ? (
-          <LoadingSpinner message="Fetching department directory..." />
+          <div className="p-6">
+            <SkeletonLoader variant="table" count={5} />
+          </div>
         ) : filteredDepartments.length === 0 ? (
           <EmptyState
-            icon={<IconDepartments size={36} className="text-muted" />}
-            title={searchTerm ? 'No matching departments' : 'No departments configured yet'}
+            title={searchTerm ? 'No matching departments' : 'No departments configured'}
             description={
               searchTerm
-                ? `No department name matches "${searchTerm}". Try another keyword or clear search.`
-                : 'Define your first administrative department to begin assigning employees.'
+                ? `No departments match "${searchTerm}".`
+                : 'Create your first organizational unit to begin assigning employees and manager roles.'
             }
-            actionText={searchTerm ? null : 'Add First Department'}
-            onAction={searchTerm ? null : openCreateModal}
+            actionText={searchTerm ? undefined : 'Add First Department'}
+            onAction={searchTerm ? undefined : openCreateModal}
           />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
-                  <th style={{ width: '80px' }}>Dept ID</th>
+                  <th style={{ width: '80px' }}>ID</th>
                   <th>Department Name</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right', width: '180px' }}>Actions</th>
+                  <th style={{ textAlign: 'right', width: '150px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredDepartments.map((dept) => (
                   <tr key={dept.id}>
                     <td>
-                      <span className="code-pill">#{dept.id}</span>
+                      <span className="font-mono text-xs text-muted">#{dept.id}</span>
                     </td>
                     <td>
-                      <span className="department-name-text">{dept.name}</span>
-                    </td>
-                    <td>
-                      <span className="status-badge badge-approved">Active</span>
+                      <strong className="text-primary text-xs font-semibold">{dept.name}</strong>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <div className="table-actions">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
-                          className="btn-action btn-action-edit"
+                          className="btn btn-secondary btn-sm text-[11px] py-1 px-2"
                           onClick={() => openEditModal(dept)}
                           title="Edit department name"
                         >
-                          <IconEdit size={14} />
+                          <IconEdit size={12} />
                           <span>Edit</span>
                         </button>
                         <button
                           type="button"
-                          className="btn-action btn-action-delete"
+                          className="btn btn-danger btn-sm text-[11px] py-1 px-2"
                           onClick={() => setDeleteTarget(dept)}
                           title="Delete department"
                         >
-                          <IconTrash size={14} />
+                          <IconTrash size={12} />
                           <span>Delete</span>
                         </button>
                       </div>
@@ -249,33 +246,28 @@ function Departments() {
       <Modal
         isOpen={isModalOpen}
         title={editDept ? 'Edit Department' : 'Create Department'}
-        subtitle={editDept ? `Modify information for #${editDept.id}` : 'Add a new administrative division'}
+        subtitle={editDept ? `Updating organizational unit #${editDept.id}` : 'Add a new organizational business unit'}
         onClose={closeModal}
+        maxWidth="450px"
       >
-        <form onSubmit={handleSubmit}>
-          <div className="form-group mb-4">
-            <label className="form-label" htmlFor="deptName">
-              Department Name <span className="text-danger">*</span>
-            </label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField label="Department Name" required htmlFor="deptName">
             <input
               id="deptName"
               type="text"
-              className="form-control"
-              placeholder="e.g. Human Resources, Engineering, Finance"
+              className="form-control text-xs"
+              placeholder="e.g. Engineering, Sales, Human Resources"
               value={deptName}
               onChange={(e) => setDeptName(e.target.value)}
               required
               autoFocus
             />
-            <span className="form-help-text">
-              Names must be unique and descriptive for employee assignments.
-            </span>
-          </div>
+          </FormField>
 
-          <div className="modal-actions">
+          <div className="modal-actions pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={closeModal}
               disabled={actionLoading}
             >
@@ -283,14 +275,10 @@ function Departments() {
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm"
               disabled={actionLoading}
             >
-              {actionLoading
-                ? 'Saving...'
-                : editDept
-                ? 'Save Changes'
-                : 'Create Department'}
+              {actionLoading ? 'Saving...' : editDept ? 'Update Department' : 'Create Department'}
             </button>
           </div>
         </form>
@@ -302,7 +290,7 @@ function Departments() {
         title="Delete Department"
         message={
           deleteTarget
-            ? `Are you sure you want to permanently delete department "${deleteTarget.name}"? If any employees belong to this department, deletion will be blocked by system integrity rules.`
+            ? `Are you sure you want to delete "${deleteTarget.name}"? If there are employees assigned to this department, deletion will be blocked by database integrity rules.`
             : ''
         }
         confirmText="Delete Department"

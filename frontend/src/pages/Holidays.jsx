@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { holidayApi, extractErrorMessage } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Modal from '../components/Modal';
+import StatCard from '../components/StatCard';
+import SkeletonLoader from '../components/SkeletonLoader';
+import FormField from '../components/FormField';
+import StatusBadge from '../components/StatusBadge';
 import {
   IconCalendar,
   IconPlus,
@@ -13,6 +17,7 @@ import {
   IconRefresh,
   IconEdit,
   IconTrash,
+  IconCheckCircle,
 } from '../components/Icons';
 
 function Holidays() {
@@ -135,99 +140,118 @@ function Holidays() {
   };
 
   const today = new Date().toISOString().split('T')[0];
-  const upcomingHolidays = holidays.filter((h) => h.holidayDate >= today);
-  const pastHolidays = holidays.filter((h) => h.holidayDate < today);
+  const upcomingHolidays = holidays
+    .filter((h) => h.holidayDate >= today)
+    .sort((a, b) => (a.holidayDate || '').localeCompare(b.holidayDate || ''));
+  const pastHolidays = holidays
+    .filter((h) => h.holidayDate < today)
+    .sort((a, b) => (b.holidayDate || '').localeCompare(a.holidayDate || ''));
 
-  const filteredHolidays = holidays.filter((h) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      !searchTerm ||
-      (h.name || '').toLowerCase().includes(term) ||
-      (h.holidayDate || '').includes(term) ||
-      (h.description || '').toLowerCase().includes(term)
-    );
-  });
+  const filteredHolidays = holidays
+    .filter((h) => {
+      const term = searchTerm.toLowerCase();
+      return (
+        !searchTerm ||
+        (h.name || '').toLowerCase().includes(term) ||
+        (h.holidayDate || '').includes(term) ||
+        (h.description || '').toLowerCase().includes(term)
+      );
+    })
+    .sort((a, b) => (a.holidayDate || '').localeCompare(b.holidayDate || ''));
 
-  const formatDisplayDate = (dateStr) => {
+  const formatDateDay = (dateStr) => {
     if (!dateStr) return '—';
     try {
       const d = new Date(dateStr + 'T00:00:00');
-      return d.toLocaleDateString(undefined, {
-        weekday: 'short',
-        year: 'numeric',
+      return d.toLocaleDateString('en-GB', {
+        day: '2-digit',
         month: 'short',
-        day: 'numeric',
+        year: 'numeric',
       });
     } catch {
       return dateStr;
     }
   };
 
+  const formatWeekday = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      const d = new Date(dateStr + 'T00:00:00');
+      return d.toLocaleDateString('en-GB', { weekday: 'long' });
+    } catch {
+      return '';
+    }
+  };
+
   return (
-    <div className="holidays-page">
+    <div className="holidays-page space-y-5">
       <PageHeader
         title="Official Holiday Calendar"
-        subtitle={isHrAdmin ? "Manage statutory public holidays and corporate closures that automatically exempt employee leave balance deductions" : "View statutory public holidays and corporate closures that exempt leave deductions"}
+        subtitle={isHrAdmin ? "Manage statutory public holidays and corporate closures that automatically exempt employee leave balance deductions." : "View statutory public holidays and corporate closures that exempt leave deductions."}
         badge={`${holidays.length} Holidays`}
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={fetchHolidays}
               disabled={loading || actionLoading}
             >
-              <IconRefresh size={16} />
+              <IconRefresh size={14} className={loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
             {isHrAdmin && (
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 onClick={openCreateModal}
               >
-                <IconPlus size={16} />
+                <IconPlus size={14} />
                 <span>Add Holiday</span>
               </button>
             )}
-          </>
+          </div>
         }
       />
 
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
       <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />
 
-      {/* KPI Stats */}
-      <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-        <div className="stat-card">
-          <span className="stat-label">Total Calendar Holidays</span>
-          <span className="stat-value">{holidays.length}</span>
-          <span className="stat-helper">Statutory & corporate observances</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Upcoming Holidays</span>
-          <span className="stat-value" style={{ color: 'var(--primary-color, #4f46e5)' }}>
-            {upcomingHolidays.length}
-          </span>
-          <span className="stat-helper">Remaining in future schedule</span>
-        </div>
-        <div className="stat-card">
-          <span className="stat-label">Past Observances</span>
-          <span className="stat-value" style={{ color: 'var(--text-muted, #64748b)' }}>
-            {pastHolidays.length}
-          </span>
-          <span className="stat-helper">Elapsed calendar events</span>
-        </div>
+      {/* KPI Stats - Compact Enterprise Proportions */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <StatCard
+          label="Total Public Holidays"
+          value={`${holidays.length} days`}
+          subtext="Statutory and corporate closures"
+          icon={<IconCalendar size={16} />}
+          tone="primary"
+        />
+
+        <StatCard
+          label="Upcoming Holidays"
+          value={`${upcomingHolidays.length} days`}
+          subtext={upcomingHolidays.length > 0 ? `Next on ${formatDateDay(upcomingHolidays[0]?.holidayDate)}` : "No future closures"}
+          icon={<IconCheckCircle size={16} />}
+          tone="emerald"
+        />
+
+        <StatCard
+          label="Past Observances"
+          value={`${pastHolidays.length} days`}
+          subtext="Completed calendar observances"
+          icon={<IconCalendar size={16} />}
+          tone="slate"
+        />
       </div>
 
-      <div className="content-card">
-        <div className="card-toolbar">
-          <div className="search-input-wrapper">
-            <IconSearch size={16} className="search-icon" />
+      <div className="card-modern">
+        <div className="p-3.5 border-b flex items-center justify-between flex-wrap gap-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="search-input-wrapper flex-1 min-w-[240px]">
+            <IconSearch size={14} className="search-icon" />
             <input
               type="text"
-              className="search-input"
-              placeholder="Search by holiday name, date (YYYY-MM-DD), or note..."
+              className="search-input text-xs"
+              placeholder="Search by holiday name, date (YYYY-MM-DD), or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -241,34 +265,35 @@ function Holidays() {
               </button>
             )}
           </div>
-          <span className="toolbar-count">
-            Showing {filteredHolidays.length} of {holidays.length}
+          <span className="text-xs text-muted font-mono">
+            {filteredHolidays.length} of {holidays.length} holidays
           </span>
         </div>
 
         {loading ? (
-          <LoadingSpinner message="Fetching holiday calendar..." />
+          <div className="p-6">
+            <SkeletonLoader variant="table" count={5} />
+          </div>
         ) : filteredHolidays.length === 0 ? (
           <EmptyState
-            icon={<IconCalendar size={36} className="text-muted" />}
             title={searchTerm ? 'No matching holidays found' : 'No holidays registered'}
             description={
               searchTerm
                 ? `No holidays match "${searchTerm}".`
                 : 'Official statutory public holidays and corporate closures are listed here.'
             }
-            actionText={holidays.length === 0 && isHrAdmin ? 'Add First Holiday' : null}
-            onAction={holidays.length === 0 && isHrAdmin ? openCreateModal : null}
+            actionText={holidays.length === 0 && isHrAdmin ? 'Add First Holiday' : undefined}
+            onAction={holidays.length === 0 && isHrAdmin ? openCreateModal : undefined}
           />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
                   <th style={{ width: '80px' }}>Ref #</th>
                   <th>Holiday Date</th>
                   <th>Holiday Name</th>
-                  <th>Description / Notes</th>
+                  <th>Description / Policy Notes</th>
                   <th>Timeline Status</th>
                   {isHrAdmin && <th style={{ textAlign: 'center', width: '130px' }}>Actions</th>}
                 </tr>
@@ -279,54 +304,54 @@ function Holidays() {
                   return (
                     <tr key={h.id}>
                       <td>
-                        <span className="code-pill">#{h.id}</span>
+                        <span className="font-mono text-xs text-muted">#{h.id}</span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <IconCalendar size={14} className="text-muted" />
-                          <span style={{ fontWeight: 600 }}>{formatDisplayDate(h.holidayDate)}</span>
-                          <span className="code-pill-sm">{h.holidayDate}</span>
+                        <div className="flex items-center gap-2.5">
+                          <IconCalendar size={15} className="text-muted flex-shrink-0" />
+                          <div>
+                            <div className="font-semibold text-xs text-primary">
+                              {formatDateDay(h.holidayDate)}
+                            </div>
+                            <div className="text-[11px] text-muted">
+                              {formatWeekday(h.holidayDate)}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td>
-                        <span style={{ fontWeight: 600, color: 'var(--text-primary, #0f172a)' }}>
-                          {h.name}
-                        </span>
+                        <strong className="text-primary text-xs font-semibold">{h.name}</strong>
                       </td>
                       <td>
-                        <span className="text-muted" style={{ fontSize: '0.875rem' }}>
-                          {h.description || '—'}
-                        </span>
+                        <span className="text-xs text-secondary">{h.description || '—'}</span>
                       </td>
                       <td>
                         {isUpcoming ? (
-                          <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            Upcoming
-                          </span>
+                          <StatusBadge status="ACTIVE" />
                         ) : (
-                          <span className="badge badge-secondary">
-                            Elapsed
-                          </span>
+                          <StatusBadge status="INACTIVE" />
                         )}
                       </td>
                       {isHrAdmin && (
                         <td style={{ textAlign: 'center' }}>
-                          <div className="table-action-btns">
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
                               type="button"
-                              className="btn-icon"
+                              className="btn btn-secondary btn-sm text-[11px] py-1 px-2"
                               onClick={() => openEditModal(h)}
                               title="Edit holiday"
                             >
-                              <IconEdit size={14} />
+                              <IconEdit size={12} />
+                              <span>Edit</span>
                             </button>
                             <button
                               type="button"
-                              className="btn-icon btn-icon-danger"
+                              className="btn btn-danger btn-sm text-[11px] py-1 px-2"
                               onClick={() => confirmDelete(h)}
                               title="Delete holiday"
                             >
-                              <IconTrash size={14} />
+                              <IconTrash size={12} />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </td>
@@ -340,88 +365,79 @@ function Holidays() {
         )}
       </div>
 
-      {/* Add / Edit Modal */}
-      {modalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-dialog">
-            <div className="modal-header">
-              <h3 className="modal-title">
-                {editingHoliday ? 'Edit Official Holiday' : 'Add Official Holiday'}
-              </h3>
-              <button
-                type="button"
-                className="modal-close-btn"
-                onClick={closeModal}
-                disabled={actionLoading}
-              >
-                &times;
-              </button>
-            </div>
-            <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                <div className="form-group">
-                  <label className="form-label">Holiday Name *</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. Independence Day, Diwali, Christmas"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Holiday Date *</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={formData.holidayDate}
-                    onChange={(e) => setFormData({ ...formData, holidayDate: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Description / Observance Details</label>
-                  <textarea
-                    className="form-textarea"
-                    rows="3"
-                    placeholder="Optional notes regarding the corporate or national observance..."
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={closeModal}
-                  disabled={actionLoading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={actionLoading}
-                >
-                  {actionLoading
-                    ? 'Saving...'
-                    : editingHoliday
-                    ? 'Update Holiday'
-                    : 'Save Holiday'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Holiday Add / Edit Modal */}
+      <Modal
+        isOpen={modalOpen}
+        title={editingHoliday ? 'Edit Statutory Holiday' : 'Register Statutory Holiday'}
+        subtitle={editingHoliday ? `Updating holiday #${editingHoliday.id}` : 'Exempts approved employee leave deductions on this date'}
+        onClose={closeModal}
+        maxWidth="480px"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField label="Holiday Name / Observance" required htmlFor="hName">
+            <input
+              id="hName"
+              type="text"
+              className="form-control text-xs"
+              placeholder="e.g. Independence Day, New Year's Day"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              required
+              autoFocus
+            />
+          </FormField>
 
-      {/* Delete Confirmation Modal */}
+          <FormField label="Holiday Calendar Date" required htmlFor="hDate">
+            <input
+              id="hDate"
+              type="date"
+              className="form-control text-xs"
+              value={formData.holidayDate}
+              onChange={(e) => setFormData({ ...formData, holidayDate: e.target.value })}
+              required
+            />
+          </FormField>
+
+          <FormField label="Description / Statutory Authority (Optional)" htmlFor="hDesc">
+            <textarea
+              id="hDesc"
+              className="form-control text-xs"
+              rows={3}
+              placeholder="e.g. Gazetted public holiday recognized nationwide..."
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            />
+          </FormField>
+
+          <div className="modal-actions pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={closeModal}
+              disabled={actionLoading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn btn-primary btn-sm"
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Saving...' : editingHoliday ? 'Update Holiday' : 'Save Holiday'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Confirmation */}
       <ConfirmDialog
         isOpen={deleteConfirm.isOpen}
-        title="Confirm Holiday Removal"
-        message={`Are you sure you want to delete the holiday '${deleteConfirm.holiday?.name}' (${deleteConfirm.holiday?.holidayDate})? Leave requests spanning this date will no longer exempt it from balance deductions.`}
+        title="Delete Holiday Record"
+        message={
+          deleteConfirm.holiday
+            ? `Are you sure you want to remove '${deleteConfirm.holiday.name}' (${deleteConfirm.holiday.holidayDate})? Future leave conflict evaluations will no longer exempt this date.`
+            : ''
+        }
         confirmText="Delete Holiday"
         confirmVariant="danger"
         loading={actionLoading}

@@ -7,17 +7,19 @@ import {
   leaveBalanceApi,
   extractErrorMessage,
 } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
+import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
+import StatCard from '../components/StatCard';
+import SkeletonLoader from '../components/SkeletonLoader';
 import Avatar from '../components/Avatar';
+import EmptyState from '../components/EmptyState';
 import {
   IconCalendar,
   IconClock,
   IconRefresh,
   IconCheckCircle,
   IconCheck,
-  IconX,
   IconAlertCircle,
   IconLeaves,
   IconEmployees,
@@ -44,6 +46,7 @@ export default function HRAdminDashboard() {
   const [conflictData, setConflictData] = useState(null);
   const [employeeBalances, setEmployeeBalances] = useState([]);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false);
 
   // Greeting
   const getGreeting = () => {
@@ -110,7 +113,6 @@ export default function HRAdminDashboard() {
     setReviewLoading(true);
     setConflictData(null);
     setEmployeeBalances([]);
-    setRejectionReason('');
     setShowRejectConfirm(false);
     setError('');
 
@@ -136,7 +138,6 @@ export default function HRAdminDashboard() {
       setReviewRequest(null);
       setConflictData(null);
       setEmployeeBalances([]);
-      setRejectionReason('');
       setShowRejectConfirm(false);
     }
   };
@@ -189,113 +190,47 @@ export default function HRAdminDashboard() {
 
   if (loading && !overview) {
     return (
-      <div className="page-container">
-        <LoadingSpinner message="Loading workforce administration workspace..." />
+      <div className="space-y-6">
+        <SkeletonLoader variant="lines" count={2} />
+        <SkeletonLoader variant="stat-grid" count={6} />
+        <SkeletonLoader variant="table" count={5} />
       </div>
     );
   }
 
   const displayName = user?.employeeName || user?.username || 'HR Admin';
-  const roleName = 'HR Admin';
   const activeWorkforce =
     (overview?.totalEmployees || 0) - (overview?.totalOnLeaveEmployees || 0);
 
   return (
-    <div className="page-container">
+    <div className="hr-admin-dashboard space-y-6">
       {/* 1. Header & Identity */}
-      <div
-        className="hr-dashboard-header"
-        style={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-          color: '#ffffff',
-          borderRadius: '1rem',
-          padding: '1.75rem 2rem',
-          marginBottom: '2rem',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1)',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '1.25rem',
-          }}
-        >
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.375rem' }}>
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.075em',
-                  background: 'rgba(216, 180, 254, 0.2)',
-                  color: '#e9d5ff',
-                  padding: '0.2rem 0.6rem',
-                  borderRadius: '0.375rem',
-                  border: '1px solid rgba(216, 180, 254, 0.4)',
-                }}
-              >
-                {roleName} Workspace
-              </span>
-              {user?.departmentName && (
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    color: '#94a3b8',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                  }}
-                >
-                  🏢 {user.departmentName}
-                </span>
-              )}
-            </div>
-            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, letterSpacing: '-0.025em' }}>
-              {getGreeting()}, {displayName}
-            </h1>
-            <p style={{ color: '#94a3b8', margin: '0.375rem 0 0', fontSize: '0.9375rem' }}>
-              Workforce administration &amp; enterprise leave governance center
-            </p>
+      <PageHeader
+        title={`${getGreeting()}, ${displayName}`}
+        subtitle={
+          <div className="flex items-center flex-wrap gap-2 text-xs text-secondary mt-1">
+            <span className="font-semibold text-primary">Human Resources Administration</span>
+            <span>&bull;</span>
+            <span className="px-2 py-0.5 rounded font-mono font-medium" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
+              Executive Workspace
+            </span>
+            <span>&bull;</span>
+            <span>Active Staff: <strong className="text-primary">{activeWorkforce}</strong> / {overview?.totalEmployees ?? 0}</span>
           </div>
-
-          {/* Quick Date Control & Refresh */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                background: 'rgba(255, 255, 255, 0.08)',
-                padding: '0.375rem 0.75rem',
-                borderRadius: '0.5rem',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-              }}
-            >
-              <IconCalendar size={16} className="text-slate-400" />
-              <label
-                htmlFor="avail-date"
-                style={{ fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1' }}
-              >
-                Availability Date:
+        }
+        actions={
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-2 px-3 py-1 rounded-md border" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+              <IconCalendar size={14} className="text-secondary" />
+              <label htmlFor="avail-date" className="text-xs font-medium text-secondary">
+                Date:
               </label>
               <input
                 id="avail-date"
                 type="date"
                 value={availabilityDate}
                 onChange={(e) => setAvailabilityDate(e.target.value)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#ffffff',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  outline: 'none',
-                  cursor: 'pointer',
-                }}
+                className="bg-transparent border-none text-xs font-mono font-medium text-primary outline-none cursor-pointer"
               />
             </div>
 
@@ -304,353 +239,117 @@ export default function HRAdminDashboard() {
               onClick={() => fetchDashboardData(true)}
               disabled={refreshing}
               className="btn btn-secondary btn-sm"
-              style={{
-                backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                borderColor: 'rgba(255, 255, 255, 0.25)',
-                color: '#ffffff',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.375rem',
-              }}
               title="Refresh live metrics"
             >
-              <IconRefresh size={14} className={refreshing ? 'spinning' : ''} />
+              <IconRefresh size={14} className={refreshing ? 'animate-spin' : ''} />
               <span>{refreshing ? 'Syncing...' : 'Sync'}</span>
             </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {error && <AlertMessage type="error" message={error} onClose={() => setError('')} />}
       {success && <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />}
 
-      {/* 2. Top KPI Cards */}
-      <div
-        className="kpi-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '1.25rem',
-          marginBottom: '2rem',
-        }}
-      >
-        {/* KPI 1: Total Employees */}
-        <div
-          className="card"
-          style={{
-            padding: '1.25rem',
-            borderLeft: '4px solid #3b82f6',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b' }}>
-              Total Employees
-            </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '0.5rem',
-                backgroundColor: '#eff6ff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#3b82f6',
-              }}
-            >
-              <IconEmployees size={18} />
-            </div>
-          </div>
-          <div style={{ marginTop: '0.75rem' }}>
-            <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
-              {overview?.totalEmployees ?? 0}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.375rem' }}>
-              Across {overview?.totalDepartments ?? 0} departments
-            </div>
-          </div>
-        </div>
+      {/* 2. Top KPI Cards - Compact Enterprise SaaS Proportions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+        <StatCard
+          label="Total Headcount"
+          value={overview?.totalEmployees ?? 0}
+          unit="staff"
+          subtext={`Across ${overview?.totalDepartments ?? 0} business units`}
+          icon={<IconEmployees size={16} />}
+          tone="slate"
+          linkTo="/employees"
+          linkText="Employee roster"
+        />
 
-        {/* KPI 2: Departments */}
-        <div
-          className="card"
-          style={{
-            padding: '1.25rem',
-            borderLeft: '4px solid #8b5cf6',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b' }}>
-              Departments
-            </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '0.5rem',
-                backgroundColor: '#f5f3ff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#8b5cf6',
-              }}
-            >
-              <IconDepartments size={18} />
-            </div>
-          </div>
-          <div style={{ marginTop: '0.75rem' }}>
-            <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
-              {overview?.totalDepartments ?? 0}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.375rem' }}>
-              Active business units
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Departments"
+          value={overview?.totalDepartments ?? 0}
+          unit="units"
+          subtext="Configured teams"
+          icon={<IconDepartments size={16} />}
+          tone="slate"
+          linkTo="/departments"
+          linkText="Manage depts"
+        />
 
-        {/* KPI 3: Pending Leave Requests */}
-        <div
-          className="card"
-          style={{
-            padding: '1.25rem',
-            borderLeft: `4px solid ${(overview?.pendingLeaves ?? 0) > 0 ? '#f59e0b' : '#10b981'}`,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b' }}>
-              Pending Requests
-            </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '0.5rem',
-                backgroundColor: (overview?.pendingLeaves ?? 0) > 0 ? '#fffbeb' : '#ecfdf5',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: (overview?.pendingLeaves ?? 0) > 0 ? '#f59e0b' : '#10b981',
-              }}
-            >
-              <IconClock size={18} />
-            </div>
-          </div>
-          <div style={{ marginTop: '0.75rem' }}>
-            <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
-              {overview?.pendingLeaves ?? 0}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.375rem' }}>
-              {(overview?.pendingWithConflictsCount ?? 0) > 0 ? (
-                <span style={{ color: '#dc2626', fontWeight: 700 }}>
-                  ⚠️ {overview.pendingWithConflictsCount} with conflicts
-                </span>
-              ) : (
-                'Awaiting review / action'
-              )}
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Pending Approvals"
+          value={overview?.pendingLeaves ?? 0}
+          unit={(overview?.pendingLeaves ?? 0) === 1 ? "request" : "requests"}
+          subtext={(overview?.pendingWithConflictsCount ?? 0) > 0 ? `${overview.pendingWithConflictsCount} with conflicts` : 'Awaiting decision'}
+          icon={<IconClock size={16} />}
+          tone={(overview?.pendingLeaves ?? 0) > 0 ? 'amber' : 'slate'}
+          badge={(overview?.pendingWithConflictsCount ?? 0) > 0 ? 'Attention' : undefined}
+          linkTo="#pending-requests-section"
+          linkText="Review queue"
+        />
 
-        {/* KPI 4: Employees on Leave Today */}
-        <div
-          className="card"
-          style={{
-            padding: '1.25rem',
-            borderLeft: '4px solid #ec4899',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b' }}>
-              On Leave Today
-            </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '0.5rem',
-                backgroundColor: '#fdf2f8',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ec4899',
-              }}
-            >
-              <IconLeaves size={18} />
-            </div>
-          </div>
-          <div style={{ marginTop: '0.75rem' }}>
-            <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
-              {overview?.totalOnLeaveEmployees ?? 0}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.375rem' }}>
-              Out of office on {availabilityDate}
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="On Leave Today"
+          value={overview?.totalOnLeaveEmployees ?? 0}
+          unit="staff"
+          subtext="Active today"
+          icon={<IconLeaves size={16} />}
+          tone={(overview?.totalOnLeaveEmployees ?? 0) > 0 ? 'amber' : 'slate'}
+          linkTo="/availability"
+          linkText="Calendar view"
+        />
 
-        {/* KPI 5: Team Availability */}
-        <div
-          className="card"
-          style={{
-            padding: '1.25rem',
-            borderLeft: '4px solid #10b981',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b' }}>
-              Team Availability
-            </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '0.5rem',
-                backgroundColor: '#ecfdf5',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#10b981',
-              }}
-            >
-              <IconCheckCircle size={18} />
-            </div>
-          </div>
-          <div style={{ marginTop: '0.75rem' }}>
-            <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
-              {overview?.organizationAvailabilityPercentage ?? 100}%
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.375rem' }}>
-              {overview?.totalAvailableEmployees ?? 0} active / {overview?.totalEmployees ?? 0} total
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Org Availability"
+          value={`${overview?.organizationAvailabilityPercentage ?? 100}%`}
+          subtext={`${overview?.totalAvailableEmployees ?? 0} active on duty`}
+          icon={<IconCheckCircle size={16} />}
+          tone="primary"
+          linkTo="/availability"
+          linkText="Staffing matrix"
+        />
 
-        {/* KPI 6: Leave Utilization */}
-        <div
-          className="card"
-          style={{
-            padding: '1.25rem',
-            borderLeft: '4px solid #6366f1',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#64748b' }}>
-              Leave Utilization
-            </span>
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: '0.5rem',
-                backgroundColor: '#eef2ff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#6366f1',
-              }}
-            >
-              <IconCalendar size={18} />
-            </div>
-          </div>
-          <div style={{ marginTop: '0.75rem' }}>
-            <div style={{ fontSize: '1.875rem', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
-              {overview?.utilizationPercentage ?? 0}%
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.375rem' }}>
-              {overview?.totalUsedDays ?? 0} / {overview?.totalEntitlementDays ?? 0} entitlement days
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Quota Usage"
+          value={`${overview?.utilizationPercentage ?? 0}%`}
+          subtext={`${overview?.totalUsedDays ?? 0} of ${overview?.totalEntitlementDays ?? 0}d used`}
+          icon={<IconCalendar size={16} />}
+          tone="purple"
+          linkTo="/balances"
+          linkText="Quota breakdown"
+        />
       </div>
 
-      {/* 3. Section 6: Alerts & Exceptions Panel */}
+      {/* 3. Operational Alerts & Exceptions Panel */}
       {((overview?.detectedConflicts && overview.detectedConflicts.length > 0) ||
         lowAvailabilityDepts.length > 0 ||
         (overview?.pendingLeaves ?? 0) > 0) && (
-        <div
-          className="card"
-          style={{
-            marginBottom: '2rem',
-            padding: '1.5rem',
-            backgroundColor: '#fffbeb',
-            border: '1px solid #fde68a',
-            borderRadius: '0.75rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '1rem' }}>
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                borderRadius: '50%',
-                backgroundColor: '#fef3c7',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#d97706',
-              }}
-            >
-              <IconAlertCircle size={18} />
-            </div>
-            <h2 style={{ fontSize: '1.0625rem', fontWeight: 700, color: '#92400e', margin: 0 }}>
-              Operational Alerts &amp; Exceptions
+        <div className="card-modern p-5" style={{ borderLeft: '4px solid var(--color-warning)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <IconAlertCircle size={18} style={{ color: 'var(--color-warning)' }} />
+            <h2 className="text-sm font-semibold text-primary m-0">
+              Operational Alerts & Exceptions
             </h2>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Condition 1: Leave Conflicts */}
             {overview?.detectedConflicts && overview.detectedConflicts.length > 0 && (
-              <div
-                style={{
-                  background: '#ffffff',
-                  padding: '1rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid #fed7aa',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#c2410c', background: '#ffedd5', padding: '0.125rem 0.5rem', borderRadius: '0.25rem' }}>
-                    Leave Conflicts ({overview.detectedConflicts.length})
-                  </span>
-                </div>
-                <p style={{ fontSize: '0.8125rem', color: '#4b5563', margin: '0 0 0.5rem' }}>
-                  Pending leave requests trigger overlapping team coverage or department threshold conflicts:
+              <div className="p-3.5 rounded-lg border text-xs" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                <span className="font-semibold px-2 py-0.5 rounded text-[11px] font-mono mb-2 inline-block" style={{ background: 'var(--color-danger-light)', color: 'var(--color-danger)' }}>
+                  Leave Conflicts ({overview.detectedConflicts.length})
+                </span>
+                <p className="text-secondary m-0 mb-2">
+                  Overlapping bookings or department minimum threshold issues detected:
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <div className="space-y-1.5">
                   {overview.detectedConflicts.map((c) => (
                     <div
                       key={`conf-${c.leaveId}`}
-                      style={{
-                        fontSize: '0.75rem',
-                        color: '#7c2d12',
-                        background: '#fff7ed',
-                        padding: '0.375rem 0.625rem',
-                        borderRadius: '0.25rem',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
+                      className="p-2 rounded flex justify-between items-center"
+                      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
                     >
-                      <span>
-                        <strong>{c.employeeName}</strong> ({c.departmentName}) &bull; {c.startDate} to {c.endDate}
+                      <span className="truncate pr-2">
+                        <strong>{c.employeeName}</strong> &bull; {c.departmentName}
                       </span>
                       <button
                         type="button"
@@ -658,18 +357,9 @@ export default function HRAdminDashboard() {
                           const target = pendingLeaves.find((l) => l.id === c.leaveId);
                           if (target) openReviewModal(target);
                         }}
-                        style={{
-                          background: '#ea580c',
-                          color: '#ffffff',
-                          border: 'none',
-                          padding: '0.125rem 0.375rem',
-                          borderRadius: '0.25rem',
-                          fontSize: '0.6875rem',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
+                        className="btn btn-secondary btn-sm text-[11px] py-0.5 px-2"
                       >
-                        Review
+                        Inspect
                       </button>
                     </div>
                   ))}
@@ -679,40 +369,26 @@ export default function HRAdminDashboard() {
 
             {/* Condition 2: Low Availability Departments */}
             {lowAvailabilityDepts.length > 0 && (
-              <div
-                style={{
-                  background: '#ffffff',
-                  padding: '1rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid #fecaca',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b91c1c', background: '#fee2e2', padding: '0.125rem 0.5rem', borderRadius: '0.25rem' }}>
-                    Low Availability Alert ({lowAvailabilityDepts.length})
-                  </span>
-                </div>
-                <p style={{ fontSize: '0.8125rem', color: '#4b5563', margin: '0 0 0.5rem' }}>
-                  Departments under minimum availability threshold (&lt;80%) on {availabilityDate}:
+              <div className="p-3.5 rounded-lg border text-xs" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                <span className="font-semibold px-2 py-0.5 rounded text-[11px] font-mono mb-2 inline-block" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
+                  Low Capacity Alert ({lowAvailabilityDepts.length})
+                </span>
+                <p className="text-secondary m-0 mb-2">
+                  Departments under the 80% staffing threshold on {availabilityDate}:
                 </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                <div className="space-y-1.5">
                   {lowAvailabilityDepts.map((d) => (
                     <div
                       key={`low-${d.departmentId}`}
-                      style={{
-                        fontSize: '0.75rem',
-                        color: '#991b1b',
-                        background: '#fef2f2',
-                        padding: '0.375rem 0.625rem',
-                        borderRadius: '0.25rem',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                      }}
+                      className="p-2 rounded flex justify-between items-center"
+                      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
                     >
                       <span>
-                        <strong>{d.departmentName}</strong>: {d.onLeaveCount} on leave, {d.availableCount} available
+                        <strong>{d.departmentName}</strong>: {d.onLeaveCount} absent
                       </span>
-                      <span style={{ fontWeight: 700 }}>{Math.round(d.availabilityPercentage)}%</span>
+                      <span className="font-mono font-bold" style={{ color: 'var(--color-danger)' }}>
+                        {Math.round(d.availabilityPercentage)}%
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -721,30 +397,18 @@ export default function HRAdminDashboard() {
 
             {/* Condition 3: Pending Approvals Oversight */}
             {(overview?.pendingLeaves ?? 0) > 0 && (
-              <div
-                style={{
-                  background: '#ffffff',
-                  padding: '1rem',
-                  borderRadius: '0.5rem',
-                  border: '1px solid #e2e8f0',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}
-              >
+              <div className="p-3.5 rounded-lg border text-xs flex flex-col justify-between" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155', background: '#f1f5f9', padding: '0.125rem 0.5rem', borderRadius: '0.25rem' }}>
-                      Pending Approvals Queue
-                    </span>
-                  </div>
-                  <p style={{ fontSize: '0.8125rem', color: '#4b5563', margin: 0 }}>
-                    {overview.pendingLeaves} requests currently await administrative or managerial action.
+                  <span className="font-semibold px-2 py-0.5 rounded text-[11px] font-mono mb-2 inline-block" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
+                    Pending Approvals Queue
+                  </span>
+                  <p className="text-secondary m-0">
+                    {overview.pendingLeaves} requests currently await administrative or department manager authorization.
                   </p>
                 </div>
-                <div style={{ marginTop: '0.75rem' }}>
-                  <Link to="/leaves" className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem', padding: '0.25rem 0.625rem' }}>
-                    Open Leave Registry
+                <div className="mt-3">
+                  <Link to="/leaves" className="btn btn-secondary btn-sm text-xs w-full justify-center">
+                    Open Full Leave Registry
                   </Link>
                 </div>
               </div>
@@ -754,133 +418,93 @@ export default function HRAdminDashboard() {
       )}
 
       {/* Main Grid: Section 1 Workforce Overview & Section 4 Department Availability */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '2rem',
-        }}
-      >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Section 1: Workforce Overview */}
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div className="card-modern p-5">
+          <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                1. Workforce Overview
-              </h2>
-              <p style={{ fontSize: '0.8125rem', color: '#64748b', margin: '0.25rem 0 0' }}>
-                Operational headcount &amp; active workforce distribution
-              </p>
+              <h2 className="text-base font-semibold text-primary m-0">Workforce Overview</h2>
+              <p className="text-xs text-secondary m-0 mt-0.5">Staffing deployment and active duty distribution</p>
             </div>
-            <Link to="/employees" className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>
-              View Employees
+            <Link to="/employees" className="text-xs font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
+              Manage Employees &rarr;
             </Link>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '0.75rem',
-              background: '#f8fafc',
-              padding: '1rem',
-              borderRadius: '0.5rem',
-              border: '1px solid #e2e8f0',
-              marginBottom: '1.25rem',
-            }}
-          >
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Total Employees</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginTop: '0.25rem' }}>
+          <div className="grid grid-cols-3 gap-2.5 p-3.5 rounded-lg border mb-4 text-center" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+            <div>
+              <div className="text-[11px] text-secondary font-medium">Total Staff</div>
+              <div className="text-xl font-bold text-primary font-mono mt-1">
                 {overview?.totalEmployees ?? 0}
               </div>
             </div>
-            <div style={{ textAlign: 'center', borderLeft: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600 }}>Active Workforce</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#16a34a', marginTop: '0.25rem' }}>
+            <div className="border-x" style={{ borderColor: 'var(--color-border)' }}>
+              <div className="text-[11px] font-medium" style={{ color: 'var(--color-success)' }}>Active Duty</div>
+              <div className="text-xl font-bold font-mono mt-1" style={{ color: 'var(--color-success)' }}>
                 {activeWorkforce}
               </div>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 600 }}>On Leave Today</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#dc2626', marginTop: '0.25rem' }}>
+            <div>
+              <div className="text-[11px] font-medium" style={{ color: 'var(--color-warning)' }}>On Leave</div>
+              <div className="text-xl font-bold font-mono mt-1" style={{ color: 'var(--color-warning)' }}>
                 {overview?.totalOnLeaveEmployees ?? 0}
               </div>
             </div>
           </div>
 
-          {/* Department Distribution Mini Breakdown */}
-          <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#334155', marginBottom: '0.75rem' }}>
-            Department Distribution
+          <h3 className="text-xs font-semibold text-secondary uppercase tracking-wider mb-2">
+            Headcount by Department
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+          <div className="space-y-2.5">
             {overview?.departmentAvailability?.map((dept) => {
               const pctOfTotal =
                 overview.totalEmployees > 0
                   ? Math.round((dept.totalEmployees / overview.totalEmployees) * 100)
                   : 0;
               return (
-                <div key={`dist-${dept.departmentId}`} style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8125rem' }}>
-                    <span style={{ fontWeight: 600, color: '#1e293b' }}>{dept.departmentName}</span>
-                    <span style={{ color: '#64748b' }}>
+                <div key={`dist-${dept.departmentId}`} className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="font-semibold text-primary">{dept.departmentName}</span>
+                    <span className="text-secondary font-mono">
                       {dept.totalEmployees} staff ({pctOfTotal}%)
                     </span>
                   </div>
-                  <div
-                    style={{
-                      height: '6px',
-                      background: '#e2e8f0',
-                      borderRadius: '3px',
-                      overflow: 'hidden',
-                    }}
-                  >
+                  <div className="progress-track">
                     <div
+                      className="progress-fill"
                       style={{
-                        height: '100%',
                         width: `${pctOfTotal}%`,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: '3px',
+                        background: 'var(--color-primary)',
                       }}
                     />
                   </div>
                 </div>
               );
             })}
-            {(!overview?.departmentAvailability || overview.departmentAvailability.length === 0) && (
-              <div style={{ fontSize: '0.8125rem', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '1rem' }}>
-                No departments recorded in the system.
-              </div>
-            )}
           </div>
         </div>
 
         {/* Section 4: Department Availability */}
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div className="card-modern p-5">
+          <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                4. Department Availability
-              </h2>
-              <p style={{ fontSize: '0.8125rem', color: '#64748b', margin: '0.25rem 0 0' }}>
-                Real-time staffing &amp; availability metrics for {availabilityDate}
-              </p>
+              <h2 className="text-base font-semibold text-primary m-0">Department Availability Matrix</h2>
+              <p className="text-xs text-secondary m-0 mt-0.5">Staffing percentage for {availabilityDate}</p>
             </div>
-            <Link to="/availability" className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>
-              Full Matrix
+            <Link to="/availability" className="text-xs font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
+              Full Matrix &rarr;
             </Link>
           </div>
 
-          <div className="table-responsive">
-            <table className="data-table" style={{ fontSize: '0.8125rem' }}>
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
                   <th>Department</th>
                   <th style={{ textAlign: 'center' }}>Staff</th>
                   <th style={{ textAlign: 'center' }}>On Leave</th>
                   <th style={{ textAlign: 'center' }}>Available</th>
-                  <th style={{ textAlign: 'right' }}>Availability %</th>
+                  <th style={{ textAlign: 'right' }}>Availability</th>
                 </tr>
               </thead>
               <tbody>
@@ -890,25 +514,22 @@ export default function HRAdminDashboard() {
                   return (
                     <tr key={`dept-row-${dept.departmentId}`}>
                       <td>
-                        <strong>{dept.departmentName}</strong>
+                        <strong className="text-primary font-medium">{dept.departmentName}</strong>
                       </td>
-                      <td style={{ textAlign: 'center' }}>{dept.totalEmployees}</td>
-                      <td style={{ textAlign: 'center', color: dept.onLeaveCount > 0 ? '#dc2626' : '#64748b' }}>
+                      <td style={{ textAlign: 'center' }} className="font-mono text-secondary">{dept.totalEmployees}</td>
+                      <td style={{ textAlign: 'center', color: dept.onLeaveCount > 0 ? 'var(--color-warning)' : 'var(--color-text-muted)' }} className="font-mono">
                         {dept.onLeaveCount}
                       </td>
-                      <td style={{ textAlign: 'center', color: '#16a34a', fontWeight: 600 }}>
+                      <td style={{ textAlign: 'center', color: 'var(--color-success)' }} className="font-mono font-semibold">
                         {dept.availableCount}
                       </td>
                       <td style={{ textAlign: 'right' }}>
                         <span
+                          className="px-2 py-0.5 rounded font-mono font-semibold text-xs"
                           style={{
-                            padding: '0.125rem 0.5rem',
-                            borderRadius: '0.25rem',
-                            fontWeight: 700,
-                            fontSize: '0.75rem',
-                            backgroundColor: isLow ? '#fee2e2' : '#ecfdf5',
-                            color: isLow ? '#b91c1c' : '#047857',
-                            border: `1px solid ${isLow ? '#fca5a5' : '#a7f3d0'}`,
+                            background: isLow ? 'var(--color-danger-light)' : 'var(--color-success-light)',
+                            color: isLow ? 'var(--color-danger)' : 'var(--color-success)',
+                            border: `1px solid ${isLow ? 'var(--color-danger)' : 'var(--color-success)'}`,
                           }}
                         >
                           {availPct}%
@@ -917,13 +538,6 @@ export default function HRAdminDashboard() {
                     </tr>
                   );
                 })}
-                {(!overview?.departmentAvailability || overview.departmentAvailability.length === 0) && (
-                  <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8', padding: '1.5rem' }}>
-                      No availability records found.
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>
@@ -931,70 +545,44 @@ export default function HRAdminDashboard() {
       </div>
 
       {/* Section 2: Pending Leave Requests */}
-      <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+      <div id="pending-requests-section" className="card-modern">
+        <div className="p-5 border-b flex justify-between items-center" style={{ borderColor: 'var(--color-border)' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                2. Pending Leave Requests
-              </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-semibold text-primary m-0">Pending Leave Requests</h2>
               {pendingLeaves.length > 0 && (
-                <span
-                  style={{
-                    backgroundColor: '#fef3c7',
-                    color: '#92400e',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    padding: '0.125rem 0.5rem',
-                    borderRadius: '9999px',
-                  }}
-                >
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold font-mono" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
                   {pendingLeaves.length} pending
                 </span>
               )}
             </div>
-            <p style={{ fontSize: '0.8125rem', color: '#64748b', margin: '0.25rem 0 0' }}>
-              Awaiting manager approval or HR administrative decision
+            <p className="text-xs text-secondary m-0 mt-0.5">
+              Organizational queue for managerial authorization and HR oversight
             </p>
           </div>
-          <Link to="/leaves" className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>
-            All Requests
+          <Link to="/leaves" className="text-xs font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
+            All Requests &rarr;
           </Link>
         </div>
 
         {pendingLeaves.length === 0 ? (
-          <div
-            style={{
-              padding: '2.5rem 1rem',
-              textAlign: 'center',
-              backgroundColor: '#f8fafc',
-              borderRadius: '0.5rem',
-              border: '1px dashed #cbd5e1',
-            }}
-          >
-            <div style={{ color: '#10b981', marginBottom: '0.5rem' }}>
-              <IconCheckCircle size={32} />
-            </div>
-            <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#334155', margin: '0 0 0.25rem' }}>
-              No Pending Leave Requests
-            </h3>
-            <p style={{ fontSize: '0.8125rem', color: '#64748b', margin: 0 }}>
-              All employee leave applications across the organization have been processed.
-            </p>
-          </div>
+          <EmptyState
+            title="No pending leave requests"
+            description="All employee leave applications across the organization have been reviewed and determined."
+          />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table" style={{ fontSize: '0.8125rem' }}>
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
                   <th>Employee</th>
                   <th>Department</th>
                   <th>Leave Type</th>
-                  <th>Dates</th>
+                  <th>Schedule</th>
                   <th style={{ textAlign: 'center' }}>Duration</th>
                   <th>Status</th>
-                  <th>Conflict Check</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
+                  <th>Conflict Pre-Check</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1004,41 +592,32 @@ export default function HRAdminDashboard() {
                   return (
                     <tr key={`pending-${leave.id}`}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div className="flex items-center gap-2">
                           <Avatar name={leave.employee?.name || 'User'} size="sm" />
                           <div>
-                            <strong style={{ color: '#0f172a' }}>{leave.employee?.name || 'Unknown'}</strong>
-                            <div style={{ fontSize: '0.6875rem', color: '#64748b' }}>
+                            <strong className="text-primary text-xs block">{leave.employee?.name || 'Unknown'}</strong>
+                            <span className="text-[11px] font-mono text-muted">
                               {leave.employee?.employeeCode || `ID #${leave.employee?.id}`}
-                            </div>
+                            </span>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <span style={{ color: '#334155' }}>
+                        <span className="text-secondary text-xs">
                           {leave.employee?.department?.name || 'Unassigned'}
                         </span>
                       </td>
                       <td>
-                        <span
-                          style={{
-                            fontWeight: 600,
-                            color: '#1e293b',
-                            backgroundColor: '#f1f5f9',
-                            padding: '0.125rem 0.375rem',
-                            borderRadius: '0.25rem',
-                          }}
-                        >
+                        <span className="font-medium text-primary text-xs">
                           {leave.leaveType?.name || 'General Leave'}
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ fontWeight: 600 }}>{leave.startDate}</span>
-                          <span style={{ fontSize: '0.6875rem', color: '#64748b' }}>to {leave.endDate}</span>
-                        </div>
+                        <span className="text-xs font-mono text-secondary">
+                          {leave.startDate} &rarr; {leave.endDate}
+                        </span>
                       </td>
-                      <td style={{ textAlign: 'center', fontWeight: 600 }}>
+                      <td style={{ textAlign: 'center' }} className="font-mono font-medium text-xs">
                         {leave.days ? `${leave.days}d` : '-'}
                       </td>
                       <td>
@@ -1046,40 +625,14 @@ export default function HRAdminDashboard() {
                       </td>
                       <td>
                         {hasConflict ? (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.25rem',
-                              color: '#dc2626',
-                              backgroundColor: '#fef2f2',
-                              border: '1px solid #fecaca',
-                              padding: '0.125rem 0.375rem',
-                              borderRadius: '0.25rem',
-                              fontSize: '0.6875rem',
-                              fontWeight: 700,
-                            }}
-                          >
-                            <IconAlertCircle size={13} />
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded" style={{ background: 'var(--color-danger-light)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)' }}>
+                            <IconAlertCircle size={12} />
                             Conflict Detected
                           </span>
                         ) : (
-                          <span
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.25rem',
-                              color: '#15803d',
-                              backgroundColor: '#f0fdf4',
-                              border: '1px solid #bbf7d0',
-                              padding: '0.125rem 0.375rem',
-                              borderRadius: '0.25rem',
-                              fontSize: '0.6875rem',
-                              fontWeight: 600,
-                            }}
-                          >
-                            <IconCheck size={13} />
-                            Clear
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)', border: '1px solid var(--color-success)' }}>
+                            <IconCheck size={12} />
+                            Compliant
                           </span>
                         )}
                       </td>
@@ -1088,9 +641,8 @@ export default function HRAdminDashboard() {
                           type="button"
                           onClick={() => openReviewModal(leave)}
                           className="btn btn-primary btn-sm"
-                          style={{ fontSize: '0.75rem', padding: '0.25rem 0.625rem' }}
                         >
-                          Review &amp; Decide
+                          Review & Decide
                         </button>
                       </td>
                     </tr>
@@ -1103,71 +655,51 @@ export default function HRAdminDashboard() {
       </div>
 
       {/* Grid: Section 3 Upcoming Leave & Section 5 Recent Activity */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '2rem',
-        }}
-      >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Section 3: Upcoming Leave */}
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div className="card-modern p-5">
+          <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                3. Upcoming Leave
-              </h2>
-              <p style={{ fontSize: '0.8125rem', color: '#64748b', margin: '0.25rem 0 0' }}>
-                Approved leaves starting on or after {availabilityDate}
-              </p>
+              <h2 className="text-base font-semibold text-primary m-0">Upcoming Approved Leaves</h2>
+              <p className="text-xs text-secondary m-0 mt-0.5">Approved bookings starting from {availabilityDate} onwards</p>
             </div>
-            <Link to="/leaves" className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>
-              View All
+            <Link to="/leaves" className="text-xs font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
+              Full Registry &rarr;
             </Link>
           </div>
 
-          <div className="table-responsive">
-            <table className="data-table" style={{ fontSize: '0.8125rem' }}>
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
                   <th>Employee</th>
                   <th>Department</th>
-                  <th>Type</th>
-                  <th>Dates</th>
+                  <th>Leave Type</th>
+                  <th>Schedule</th>
                   <th style={{ textAlign: 'center' }}>Days</th>
                 </tr>
               </thead>
               <tbody>
-                {overview?.upcomingApprovedLeaves?.map((item) => (
+                {overview?.upcomingApprovedLeaves?.slice(0, 6).map((item) => (
                   <tr key={`upcoming-${item.id}`}>
                     <td>
-                      <strong style={{ color: '#0f172a' }}>{item.employeeName}</strong>
+                      <strong className="text-primary text-xs">{item.employeeName}</strong>
                     </td>
                     <td>
-                      <span style={{ color: '#475569' }}>{item.departmentName}</span>
+                      <span className="text-secondary text-xs">{item.departmentName}</span>
                     </td>
                     <td>
-                      <span
-                        style={{
-                          backgroundColor: '#f1f5f9',
-                          padding: '0.125rem 0.375rem',
-                          borderRadius: '0.25rem',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {item.leaveTypeName}
-                      </span>
+                      <span className="font-medium text-primary text-xs">{item.leaveTypeName}</span>
                     </td>
-                    <td>
-                      <span>{item.startDate} &rarr; {item.endDate}</span>
+                    <td className="text-xs font-mono text-secondary">
+                      {item.startDate} &rarr; {item.endDate}
                     </td>
-                    <td style={{ textAlign: 'center', fontWeight: 600 }}>{item.days}d</td>
+                    <td style={{ textAlign: 'center' }} className="font-mono font-medium text-xs">{item.days}d</td>
                   </tr>
                 ))}
                 {(!overview?.upcomingApprovedLeaves || overview.upcomingApprovedLeaves.length === 0) && (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: 'center', color: '#94a3b8', padding: '1.5rem' }}>
+                    <td colSpan={5} className="text-center text-muted p-4 text-xs">
                       No upcoming approved leaves found.
                     </td>
                   </tr>
@@ -1178,72 +710,59 @@ export default function HRAdminDashboard() {
         </div>
 
         {/* Section 5: Recent Activity (Audit History) */}
-        <div className="card" style={{ padding: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div className="card-modern p-5">
+          <div className="flex justify-between items-center mb-4">
             <div>
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                5. Recent Activity
-              </h2>
-              <p style={{ fontSize: '0.8125rem', color: '#64748b', margin: '0.25rem 0 0' }}>
-                Latest administrative &amp; lifecycle audit log events
-              </p>
+              <h2 className="text-base font-semibold text-primary m-0">System Audit Trail</h2>
+              <p className="text-xs text-secondary m-0 mt-0.5">Latest administrative actions & lifecycle events</p>
             </div>
-            <Link to="/audit" className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>
-              Full Audit Trail
+            <Link to="/audit" className="text-xs font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
+              Full Audit History &rarr;
             </Link>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {overview?.recentActivity?.map((act) => {
+          <div className="space-y-2.5">
+            {overview?.recentActivity?.slice(0, 5).map((act) => {
               const formattedTime = act.timestamp ? new Date(act.timestamp).toLocaleString() : '-';
               return (
                 <div
                   key={`act-${act.id}`}
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: '0.5rem',
-                    backgroundColor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    fontSize: '0.8125rem',
-                  }}
+                  className="p-3 rounded-lg border text-xs"
+                  style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                  <div className="flex justify-between items-center mb-1">
+                    <div className="flex items-center gap-2">
                       <span
+                        className="font-mono font-bold text-[10px] px-1.5 py-0.5 rounded uppercase"
                         style={{
-                          fontWeight: 700,
-                          fontSize: '0.6875rem',
-                          textTransform: 'uppercase',
-                          backgroundColor:
+                          background:
                             act.action === 'CREATE'
-                              ? '#dcfce7'
+                              ? 'var(--color-success-light)'
                               : act.action === 'DELETE'
-                              ? '#fee2e2'
-                              : '#e0e7ff',
+                              ? 'var(--color-danger-light)'
+                              : 'var(--color-primary-light)',
                           color:
                             act.action === 'CREATE'
-                              ? '#15803d'
+                              ? 'var(--color-success)'
                               : act.action === 'DELETE'
-                              ? '#b91c1c'
-                              : '#4338ca',
-                          padding: '0.125rem 0.375rem',
-                          borderRadius: '0.25rem',
+                              ? 'var(--color-danger)'
+                              : 'var(--color-primary)',
                         }}
                       >
                         {act.action}
                       </span>
-                      <strong style={{ color: '#0f172a' }}>{act.actor || 'System'}</strong>
+                      <strong className="text-primary">{act.actor || 'System'}</strong>
                     </div>
-                    <span style={{ fontSize: '0.6875rem', color: '#64748b' }}>{formattedTime}</span>
+                    <span className="text-muted font-mono text-[11px]">{formattedTime}</span>
                   </div>
-                  <p style={{ margin: '0.25rem 0 0', color: '#334155', lineHeight: 1.35 }}>
+                  <p className="text-secondary m-0 leading-relaxed">
                     {act.description}
                   </p>
                 </div>
               );
             })}
             {(!overview?.recentActivity || overview.recentActivity.length === 0) && (
-              <div style={{ textAlign: 'center', color: '#94a3b8', padding: '1.5rem', fontStyle: 'italic' }}>
+              <div className="text-center text-muted p-4 text-xs">
                 No recent activity logged.
               </div>
             )}
@@ -1253,126 +772,67 @@ export default function HRAdminDashboard() {
 
       {/* Review & Oversight Modal */}
       {reviewRequest && (
-        <div
-          className="modal-overlay"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.65)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '1rem',
-          }}
-        >
-          <div
-            className="modal-container"
-            style={{
-              backgroundColor: '#ffffff',
-              borderRadius: '1rem',
-              width: '100%',
-              maxWidth: '680px',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)',
-              padding: '1.75rem',
-            }}
-          >
+        <div className="modal-backdrop">
+          <div className="modal-container max-w-2xl">
             {/* Modal Header */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '1px solid #e2e8f0',
-                paddingBottom: '1rem',
-                marginBottom: '1.25rem',
-              }}
-            >
+            <div className="modal-header">
               <div>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    color: '#7e22ce',
-                    background: '#f3e8ff',
-                    padding: '0.125rem 0.5rem',
-                    borderRadius: '0.25rem',
-                  }}
-                >
+                <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded uppercase" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
                   Administrative Review #{reviewRequest.id}
                 </span>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0.375rem 0 0', color: '#0f172a' }}>
+                <h3 className="modal-title mt-1">
                   Review Leave Request: {reviewRequest.employee?.name}
                 </h3>
               </div>
               <button
                 type="button"
+                className="modal-close-btn"
                 onClick={closeReviewModal}
                 disabled={actionLoading}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#64748b',
-                  cursor: 'pointer',
-                  padding: '0.25rem',
-                }}
               >
-                <IconX size={20} />
+                &times;
               </button>
             </div>
 
             {reviewLoading ? (
-              <div style={{ padding: '2rem 0' }}>
-                <LoadingSpinner message="Checking conflicts and employee leave balances..." />
+              <div className="modal-body py-8">
+                <SkeletonLoader variant="lines" count={4} />
               </div>
             ) : (
-              <div>
+              <div className="modal-body space-y-4">
                 {/* Leave details block */}
-                <div
-                  style={{
-                    backgroundColor: '#f8fafc',
-                    padding: '1rem',
-                    borderRadius: '0.5rem',
-                    border: '1px solid #e2e8f0',
-                    marginBottom: '1rem',
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-                    gap: '0.75rem',
-                  }}
-                >
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-lg border text-xs" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
                   <div>
-                    <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600 }}>DEPARTMENT</span>
-                    <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    <span className="text-muted text-[11px] font-semibold block">DEPARTMENT</span>
+                    <div className="font-semibold text-primary mt-0.5">
                       {reviewRequest.employee?.department?.name || 'Unassigned'}
                     </div>
                   </div>
                   <div>
-                    <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600 }}>LEAVE TYPE</span>
-                    <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    <span className="text-muted text-[11px] font-semibold block">LEAVE CATEGORY</span>
+                    <div className="font-semibold text-primary mt-0.5">
                       {reviewRequest.leaveType?.name || 'General Leave'}
                     </div>
                   </div>
                   <div>
-                    <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600 }}>DATES</span>
-                    <div style={{ fontWeight: 600, color: '#1e293b' }}>
+                    <span className="text-muted text-[11px] font-semibold block">SCHEDULE</span>
+                    <div className="font-mono text-secondary mt-0.5">
                       {reviewRequest.startDate} &rarr; {reviewRequest.endDate}
                     </div>
                   </div>
                   <div>
-                    <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600 }}>DURATION</span>
-                    <div style={{ fontWeight: 700, color: '#0f172a' }}>
+                    <span className="text-muted text-[11px] font-semibold block">DURATION</span>
+                    <div className="font-mono font-bold text-primary mt-0.5">
                       {reviewRequest.days ? `${reviewRequest.days} days` : '-'}
                     </div>
                   </div>
                 </div>
 
                 {reviewRequest.reason && (
-                  <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: '#f1f5f9', borderRadius: '0.375rem' }}>
-                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#475569' }}>EMPLOYEE REASON:</span>
-                    <p style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem', color: '#1e293b' }}>
-                      {reviewRequest.reason}
+                  <div className="p-3 rounded-lg border text-xs" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+                    <span className="font-semibold text-secondary block mb-1">EMPLOYEE STATED REASON:</span>
+                    <p className="text-primary italic m-0">
+                      "{reviewRequest.reason}"
                     </p>
                   </div>
                 )}
@@ -1380,74 +840,61 @@ export default function HRAdminDashboard() {
                 {/* Conflict Engine Evaluation Results */}
                 {conflictData && (
                   <div
+                    className="p-3.5 rounded-lg border text-xs"
                     style={{
-                      marginBottom: '1.25rem',
-                      padding: '1rem',
-                      borderRadius: '0.5rem',
-                      backgroundColor: conflictData.canApprove ? '#f0fdf4' : '#fef2f2',
-                      border: `1px solid ${conflictData.canApprove ? '#bbf7d0' : '#fecaca'}`,
+                      background: conflictData.canApprove ? 'var(--color-success-light)' : 'var(--color-danger-light)',
+                      borderColor: conflictData.canApprove ? 'var(--color-success)' : 'var(--color-danger)',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <div className="flex items-center gap-2 mb-1">
                       {conflictData.canApprove ? (
-                        <IconCheckCircle size={18} className="text-emerald-600" />
+                        <IconCheckCircle size={16} style={{ color: 'var(--color-success)' }} />
                       ) : (
-                        <IconAlertCircle size={18} className="text-rose-600" />
+                        <IconAlertCircle size={16} style={{ color: 'var(--color-danger)' }} />
                       )}
-                      <strong style={{ color: conflictData.canApprove ? '#15803d' : '#b91c1c', fontSize: '0.875rem' }}>
+                      <strong style={{ color: conflictData.canApprove ? 'var(--color-success)' : 'var(--color-danger)' }}>
                         {conflictData.canApprove
-                          ? 'Automated Rules Pass — Eligible for Approval'
+                          ? 'Automated Policy Rules Compliant — Ready for Authorization'
                           : 'Blocking Conflict Detected — Review Restrictions Below'}
                       </strong>
                     </div>
 
                     {conflictData.conflicts && conflictData.conflicts.length > 0 && (
-                      <div style={{ marginTop: '0.5rem' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#991b1b' }}>Conflicts:</span>
-                        <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#7f1d1d' }}>
-                          {conflictData.conflicts.map((c, idx) => (
-                            <li key={`conf-itm-${idx}`}>
-                              <strong>[{c.type}]</strong> {c.message}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      <ul className="mt-2 pl-4 list-disc space-y-0.5" style={{ color: 'var(--color-danger)' }}>
+                        {conflictData.conflicts.map((c, idx) => (
+                          <li key={`conf-itm-${idx}`}>
+                            <strong>[{c.type}]</strong> {c.message}
+                          </li>
+                        ))}
+                      </ul>
                     )}
 
                     {conflictData.warnings && conflictData.warnings.length > 0 && (
-                      <div style={{ marginTop: '0.5rem' }}>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#b45309' }}>Advisories:</span>
-                        <ul style={{ margin: '0.25rem 0 0', paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#92400e' }}>
-                          {conflictData.warnings.map((w, idx) => (
-                            <li key={`warn-itm-${idx}`}>{w}</li>
-                          ))}
-                        </ul>
-                      </div>
+                      <ul className="mt-2 pl-4 list-disc space-y-0.5" style={{ color: 'var(--color-warning)' }}>
+                        {conflictData.warnings.map((w, idx) => (
+                          <li key={`warn-itm-${idx}`}>{w}</li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 )}
 
                 {/* Balances Context */}
                 {employeeBalances.length > 0 && (
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    <h4 style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '0.5rem', textTransform: 'uppercase' }}>
-                      Employee Balances ({reviewRequest.employee?.name})
+                  <div>
+                    <h4 className="text-xs font-semibold text-secondary uppercase mb-2">
+                      Employee Quotas ({reviewRequest.employee?.name})
                     </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem' }}>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
                       {employeeBalances.map((b) => (
                         <div
                           key={`bal-${b.id}`}
-                          style={{
-                            padding: '0.5rem',
-                            borderRadius: '0.375rem',
-                            backgroundColor: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            fontSize: '0.75rem',
-                          }}
+                          className="p-2.5 rounded-lg border"
+                          style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}
                         >
-                          <div style={{ fontWeight: 600, color: '#334155' }}>{b.leaveType?.name || 'Balance'}</div>
-                          <div style={{ color: '#64748b', marginTop: '0.125rem' }}>
-                            Remaining: <strong style={{ color: '#0f172a' }}>{b.remainingBalance}d</strong> / {b.entitlement}d
+                          <div className="font-semibold text-primary truncate">{b.leaveType?.name || 'Balance'}</div>
+                          <div className="text-secondary font-mono mt-0.5">
+                            Remaining: <strong className="text-primary">{b.remainingBalance}d</strong> / {b.entitlement}d
                           </div>
                         </div>
                       ))}
@@ -1457,11 +904,11 @@ export default function HRAdminDashboard() {
 
                 {/* Reject Confirmation section */}
                 {showRejectConfirm && (
-                  <div style={{ padding: '0.75rem', backgroundColor: '#fef2f2', borderRadius: '0.375rem', marginBottom: '1rem', border: '1px solid #fee2e2' }}>
-                    <p style={{ margin: '0 0 0.5rem', fontSize: '0.8125rem', fontWeight: 600, color: '#991b1b' }}>
-                      Are you sure you want to REJECT this leave request?
+                  <div className="p-3 rounded-lg border text-xs" style={{ background: 'var(--color-danger-light)', borderColor: 'var(--color-danger)' }}>
+                    <p className="font-semibold m-0 mb-2" style={{ color: 'var(--color-danger)' }}>
+                      Are you sure you want to REJECT this leave request? This action will be recorded in the audit trail.
                     </p>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={handleReject}
@@ -1481,54 +928,40 @@ export default function HRAdminDashboard() {
                     </div>
                   </div>
                 )}
-
-                {/* Modal Footer Controls */}
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    borderTop: '1px solid #e2e8f0',
-                    paddingTop: '1rem',
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={closeReviewModal}
-                    disabled={actionLoading}
-                    className="btn btn-secondary"
-                  >
-                    Close
-                  </button>
-
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    {!showRejectConfirm && (
-                      <button
-                        type="button"
-                        onClick={() => setShowRejectConfirm(true)}
-                        disabled={actionLoading}
-                        className="btn btn-danger"
-                      >
-                        Reject Request
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleApprove}
-                      disabled={actionLoading}
-                      className="btn btn-success"
-                      style={{
-                        backgroundColor: '#16a34a',
-                        borderColor: '#15803d',
-                        color: '#ffffff',
-                      }}
-                    >
-                      {actionLoading ? 'Approving...' : 'Approve Request'}
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                onClick={closeReviewModal}
+                disabled={actionLoading}
+                className="btn btn-secondary btn-sm"
+              >
+                Close
+              </button>
+
+              <div className="flex gap-2">
+                {!showRejectConfirm && (
+                  <button
+                    type="button"
+                    onClick={() => setShowRejectConfirm(true)}
+                    disabled={actionLoading}
+                    className="btn btn-danger btn-sm"
+                  >
+                    Reject Request
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleApprove}
+                  disabled={actionLoading}
+                  className="btn btn-primary btn-sm"
+                >
+                  {actionLoading ? 'Approving...' : 'Approve Request'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

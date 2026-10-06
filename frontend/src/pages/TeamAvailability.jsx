@@ -1,19 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { departmentApi, availabilityApi, extractErrorMessage } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import Avatar from '../components/Avatar';
+import StatCard from '../components/StatCard';
+import SkeletonLoader from '../components/SkeletonLoader';
+import FormField from '../components/FormField';
+import StatusBadge from '../components/StatusBadge';
 import {
   IconDepartments,
   IconCalendar,
   IconSearch,
   IconRefresh,
   IconCheck,
-  IconX,
   IconLeaves,
+  IconCheckCircle,
 } from '../components/Icons';
 
 function TeamAvailability() {
@@ -76,7 +79,6 @@ function TeamAvailability() {
     }
   };
 
-  // Trigger availability query whenever selected department or date changes
   useEffect(() => {
     if (selectedDeptId && selectedDate) {
       fetchAvailability(selectedDeptId, selectedDate);
@@ -88,20 +90,20 @@ function TeamAvailability() {
   };
 
   return (
-    <div className="team-availability-page">
+    <div className="team-availability-page space-y-6">
       <PageHeader
         title="Workforce & Team Availability"
-        subtitle="Real-time capacity forecasting and attendance auditing across departments on selected calendar dates"
-        badge={availability ? `${availability.availabilityPercentage}% Ready` : 'Capacity Audit'}
+        subtitle="Real-time capacity forecasting and attendance auditing across departments on selected calendar dates."
+        badge={availability ? `${availability.availabilityPercentage}% Capacity` : 'Capacity Audit'}
         actions={
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-sm"
             onClick={handleRefresh}
             disabled={loadingAvailability}
           >
-            <IconRefresh size={16} />
-            <span>Refresh Audit</span>
+            <IconRefresh size={14} className={loadingAvailability ? 'animate-spin' : ''} />
+            <span>Refresh Assessment</span>
           </button>
         }
       />
@@ -109,15 +111,12 @@ function TeamAvailability() {
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
 
       {/* Query Controls Card */}
-      <div className="content-card" style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem', alignItems: 'flex-end' }}>
-          <div style={{ flex: '1 1 240px' }}>
-            <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <IconDepartments size={16} />
-              <span>Target Department</span>
-            </label>
+      <div className="card-modern p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+          <FormField label="Target Department" required htmlFor="targetDept">
             <select
-              className="form-select"
+              id="targetDept"
+              className="form-control text-xs"
               value={selectedDeptId}
               onChange={(e) => setSelectedDeptId(e.target.value)}
               disabled={loadingDepts}
@@ -129,130 +128,113 @@ function TeamAvailability() {
                 </option>
               ))}
             </select>
-          </div>
+          </FormField>
 
-          <div style={{ flex: '1 1 200px' }}>
-            <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <IconCalendar size={16} />
-              <span>Forecast Date</span>
-            </label>
+          <FormField label="Forecast Date" required htmlFor="forecastDate">
             <input
+              id="forecastDate"
               type="date"
-              className="form-input"
+              className="form-control text-xs"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               required
             />
-          </div>
+          </FormField>
 
           <div>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm w-full justify-center"
               onClick={handleRefresh}
               disabled={loadingAvailability || !selectedDeptId}
             >
-              <IconSearch size={16} />
-              <span>Run Assessment</span>
+              <IconSearch size={14} />
+              <span>{loadingAvailability ? 'Calculating...' : 'Run Capacity Assessment'}</span>
             </button>
           </div>
         </div>
       </div>
 
       {loadingDepts || loadingAvailability ? (
-        <LoadingSpinner message="Calculating real-time team availability and cross-referencing approved leaves..." />
+        <div className="space-y-6">
+          <SkeletonLoader variant="stat-grid" count={4} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <SkeletonLoader variant="table" count={4} />
+            <SkeletonLoader variant="table" count={4} />
+          </div>
+        </div>
       ) : !availability ? (
         <EmptyState
-          icon={<IconDepartments size={36} className="text-muted" />}
           title="Select Department and Date"
           description="Choose a department and calendar date above to compute workforce availability."
         />
       ) : availability.totalEmployees === 0 ? (
-        <div className="content-card">
-          <EmptyState
-            icon={<IconDepartments size={36} className="text-muted" />}
-            title={`No Staff Allocated to ${availability.departmentName}`}
-            description="There are currently zero employees assigned to this department in the organization registry."
-          />
-        </div>
+        <EmptyState
+          title={`No Staff Allocated to ${availability.departmentName}`}
+          description="There are currently zero employees assigned to this department in the organization registry."
+        />
       ) : (
         <>
-          {/* Availability Metrics KPI Cards */}
-          <div className="stats-grid" style={{ marginBottom: '1.5rem' }}>
-            <div className="stat-card">
-              <span className="stat-label">Total Department Roster</span>
-              <span className="stat-value">{availability.totalEmployees}</span>
-              <span className="stat-helper">Active personnel assigned</span>
-            </div>
+          {/* Availability Metrics KPI Cards - Compact SaaS Proportions */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <StatCard
+              label="Team Size"
+              value={availability.totalEmployees}
+              unit="staff"
+              subtext="Assigned department roster"
+              icon={<IconDepartments size={16} />}
+              tone="slate"
+            />
 
-            <div className="stat-card">
-              <span className="stat-label">Available on Duty</span>
-              <span className="stat-value" style={{ color: 'var(--emerald-600, #059669)' }}>
-                {availability.availableCount}
-              </span>
-              <span className="stat-helper">Active & ready for work</span>
-            </div>
+            <StatCard
+              label="Available on Duty"
+              value={availability.availableCount}
+              unit="active"
+              subtext="Present & available for work"
+              icon={<IconCheck size={16} />}
+              tone="emerald"
+            />
 
-            <div className="stat-card">
-              <span className="stat-label">On Approved Leave</span>
-              <span className="stat-value" style={{ color: 'var(--rose-600, #e11d48)' }}>
-                {availability.onLeaveCount}
-              </span>
-              <span className="stat-helper">Exempt from duty</span>
-            </div>
+            <StatCard
+              label="On Approved Leave"
+              value={availability.onLeaveCount}
+              unit="absent"
+              subtext="Approved scheduled leaves"
+              icon={<IconLeaves size={16} />}
+              tone={availability.onLeaveCount > 0 ? "amber" : "slate"}
+            />
 
-            <div className="stat-card">
-              <span className="stat-label">Staffing Availability</span>
-              <span
-                className="stat-value"
-                style={{
-                  color:
-                    availability.availabilityPercentage >= 80
-                      ? 'var(--emerald-600, #059669)'
-                      : availability.availabilityPercentage >= 50
-                      ? 'var(--amber-600, #d97706)'
-                      : 'var(--rose-600, #e11d48)',
-                }}
-              >
-                {availability.availabilityPercentage}%
-              </span>
-              <div style={{ marginTop: '0.5rem', width: '100%', height: '6px', background: 'var(--border-color, #e2e8f0)', borderRadius: '999px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: `${availability.availabilityPercentage}%`,
-                    height: '100%',
-                    background:
-                      availability.availabilityPercentage >= 80
-                        ? 'var(--emerald-500, #10b981)'
-                        : availability.availabilityPercentage >= 50
-                        ? 'var(--amber-500, #f59e0b)'
-                        : 'var(--rose-500, #ef4444)',
-                    borderRadius: '999px',
-                  }}
-                />
-              </div>
-            </div>
+            <StatCard
+              label="Availability Rate"
+              value={`${Math.round(availability.availabilityPercentage)}%`}
+              subtext={availability.availabilityPercentage >= 80 ? "Healthy duty capacity" : "Capacity threshold warning"}
+              icon={<IconCheckCircle size={16} />}
+              tone={availability.availabilityPercentage >= 80 ? "primary" : "rose"}
+            />
           </div>
 
           {/* Categorized Lists */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Available Employees Card */}
-            <div className="content-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color, #e2e8f0)' }}>
-                <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--emerald-700, #047857)' }}>
-                  <IconCheck size={18} />
-                  <span>Available on Duty ({availability.availableEmployees.length})</span>
-                </h4>
-                <span className="badge badge-success">Active</span>
+            <div className="card-modern p-5">
+              <div className="flex items-center justify-between pb-3 border-b mb-4" style={{ borderColor: 'var(--color-border)' }}>
+                <div>
+                  <h4 className="text-sm font-semibold text-primary m-0 flex items-center gap-1.5">
+                    <IconCheck size={16} style={{ color: 'var(--color-success)' }} />
+                    <span>Active on Duty ({availability.availableEmployees.length})</span>
+                  </h4>
+                  <p className="text-xs text-secondary m-0 mt-0.5">Staff scheduled on normal duty today</p>
+                </div>
+                <StatusBadge status="AVAILABLE" />
               </div>
 
               {availability.availableEmployees.length === 0 ? (
-                <p className="text-muted" style={{ fontStyle: 'italic', margin: '1rem 0' }}>
+                <p className="text-muted text-xs italic py-4 text-center">
                   No personnel are available on duty for this date.
                 </p>
               ) : (
-                <div className="table-responsive">
-                  <table className="data-table">
+                <div className="table-wrapper-modern">
+                  <table className="table-modern">
                     <thead>
                       <tr>
                         <th>Employee</th>
@@ -264,19 +246,21 @@ function TeamAvailability() {
                       {availability.availableEmployees.map((emp) => (
                         <tr key={emp.id}>
                           <td>
-                            <div className="employee-cell-avatar">
-                              <Avatar name={emp.name} size={30} />
-                              <div className="employee-info-cell">
-                                <span className="employee-primary-name">{emp.name}</span>
-                                <span className="code-pill-sm">{emp.employeeId}</span>
+                            <div className="flex items-center gap-2">
+                              <Avatar name={emp.name} size="sm" />
+                              <div>
+                                <span className="font-semibold text-primary text-xs block">{emp.name}</span>
+                                <span className="text-[11px] font-mono text-muted">{emp.employeeId}</span>
                               </div>
                             </div>
                           </td>
                           <td>
-                            <span style={{ fontSize: '0.875rem' }}>{emp.designation || 'General'}</span>
+                            <span className="text-xs text-secondary">{emp.designation || 'General'}</span>
                           </td>
                           <td>
-                            <span className="badge badge-success">Present</span>
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded font-mono" style={{ background: 'var(--color-success-light)', color: 'var(--color-success)' }}>
+                              Present
+                            </span>
                           </td>
                         </tr>
                       ))}
@@ -287,46 +271,49 @@ function TeamAvailability() {
             </div>
 
             {/* Employees on Leave Card */}
-            <div className="content-card">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--border-color, #e2e8f0)' }}>
-                <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--rose-700, #be123c)' }}>
-                  <IconLeaves size={18} />
-                  <span>On Approved Leave ({availability.onLeaveEmployees.length})</span>
-                </h4>
-                <span className="badge badge-danger">Out of Office</span>
+            <div className="card-modern p-5">
+              <div className="flex items-center justify-between pb-3 border-b mb-4" style={{ borderColor: 'var(--color-border)' }}>
+                <div>
+                  <h4 className="text-sm font-semibold text-primary m-0 flex items-center gap-1.5">
+                    <IconLeaves size={16} style={{ color: 'var(--color-warning)' }} />
+                    <span>On Approved Leave ({availability.onLeaveEmployees.length})</span>
+                  </h4>
+                  <p className="text-xs text-secondary m-0 mt-0.5">Personnel with approved absence on this date</p>
+                </div>
+                <StatusBadge status="APPROVED" />
               </div>
 
               {availability.onLeaveEmployees.length === 0 ? (
-                <p className="text-muted" style={{ fontStyle: 'italic', margin: '1rem 0' }}>
+                <p className="text-muted text-xs italic py-4 text-center">
                   Full workforce attendance! No employees are on leave on this date.
                 </p>
               ) : (
-                <div className="table-responsive">
-                  <table className="data-table">
+                <div className="table-wrapper-modern">
+                  <table className="table-modern">
                     <thead>
                       <tr>
                         <th>Employee</th>
-                        <th>Leave Policy</th>
-                        <th>Reason / Grounds</th>
+                        <th>Leave Category</th>
+                        <th>Stated Grounds</th>
                       </tr>
                     </thead>
                     <tbody>
                       {availability.onLeaveEmployees.map((emp) => (
                         <tr key={emp.id}>
                           <td>
-                            <div className="employee-cell-avatar">
-                              <Avatar name={emp.name} size={30} />
-                              <div className="employee-info-cell">
-                                <span className="employee-primary-name">{emp.name}</span>
-                                <span className="code-pill-sm">{emp.employeeId}</span>
+                            <div className="flex items-center gap-2">
+                              <Avatar name={emp.name} size="sm" />
+                              <div>
+                                <span className="font-semibold text-primary text-xs block">{emp.name}</span>
+                                <span className="text-[11px] font-mono text-muted">{emp.employeeId}</span>
                               </div>
                             </div>
                           </td>
                           <td>
-                            <span className="policy-badge">{emp.leaveType || 'Approved Leave'}</span>
+                            <span className="text-xs font-medium text-primary">{emp.leaveType || 'Approved Leave'}</span>
                           </td>
                           <td>
-                            <span className="text-muted" style={{ fontSize: '0.85rem' }} title={emp.leaveReason}>
+                            <span className="text-xs text-secondary truncate max-w-xs block" title={emp.leaveReason}>
                               {emp.leaveReason || '—'}
                             </span>
                           </td>

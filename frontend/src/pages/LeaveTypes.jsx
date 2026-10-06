@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { leaveTypeApi, extractErrorMessage } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import Modal from '../components/Modal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import SkeletonLoader from '../components/SkeletonLoader';
+import FormField from '../components/FormField';
 import {
-  IconLeaveTypes,
   IconPlus,
   IconSearch,
   IconEdit,
@@ -81,7 +81,7 @@ function LeaveTypes() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      setError('Leave type policy name cannot be blank.');
+      setError('Leave category name cannot be blank.');
       return;
     }
     const days = parseInt(formData.defaultDays, 10);
@@ -103,10 +103,10 @@ function LeaveTypes() {
     try {
       if (editType) {
         await leaveTypeApi.update(editType.id, payload);
-        setSuccess(`Leave policy '${formData.name.trim()}' updated successfully!`);
+        setSuccess(`Leave category '${formData.name.trim()}' updated successfully!`);
       } else {
         await leaveTypeApi.create(payload);
-        setSuccess(`New leave policy '${formData.name.trim()}' created successfully!`);
+        setSuccess(`New leave category '${formData.name.trim()}' created successfully!`);
       }
       closeModal();
       fetchLeaveTypes();
@@ -126,7 +126,7 @@ function LeaveTypes() {
 
     try {
       await leaveTypeApi.delete(deleteTarget.id);
-      setSuccess(`Leave policy "${deleteTarget.name}" deleted successfully.`);
+      setSuccess(`Leave category "${deleteTarget.name}" deleted successfully.`);
       setDeleteTarget(null);
       fetchLeaveTypes();
     } catch (err) {
@@ -143,31 +143,31 @@ function LeaveTypes() {
   );
 
   return (
-    <div className="leave-types-page">
+    <div className="leave-types-page space-y-6">
       <PageHeader
-        title="Leave Policy Categories"
-        subtitle="Configure company-wide time off classifications, entitlement days, and guidelines"
-        badge={`${leaveTypes.length} Policies`}
+        title="Leave Categories"
+        subtitle="Manage company-wide time off classifications, baseline annual days, and purpose descriptions."
+        badge={`${leaveTypes.length} Categories`}
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={fetchLeaveTypes}
               disabled={loading || actionLoading}
             >
-              <IconRefresh size={16} />
+              <IconRefresh size={14} className={loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm"
               onClick={openCreateModal}
             >
-              <IconPlus size={16} />
-              <span>Configure Policy</span>
+              <IconPlus size={14} />
+              <span>Add Category</span>
             </button>
-          </>
+          </div>
         }
       />
 
@@ -175,14 +175,14 @@ function LeaveTypes() {
       <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />
 
       {/* Toolbar & Table */}
-      <div className="content-card">
-        <div className="card-toolbar">
-          <div className="search-input-wrapper">
-            <IconSearch size={16} className="search-icon" />
+      <div className="card-modern">
+        <div className="p-4 border-b flex items-center justify-between flex-wrap gap-3" style={{ borderColor: 'var(--color-border)' }}>
+          <div className="search-input-wrapper flex-1 min-w-[240px]">
+            <IconSearch size={14} className="search-icon" />
             <input
               type="text"
-              className="search-input"
-              placeholder="Search policies by name or description..."
+              className="search-input text-xs"
+              placeholder="Filter leave categories..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -197,74 +197,73 @@ function LeaveTypes() {
               </button>
             )}
           </div>
-          <span className="toolbar-count">
-            Showing {filteredLeaveTypes.length} of {leaveTypes.length}
+          <span className="text-xs text-muted font-mono">
+            {filteredLeaveTypes.length} of {leaveTypes.length} categories
           </span>
         </div>
 
         {loading ? (
-          <LoadingSpinner message="Loading policy categories..." />
+          <div className="p-6">
+            <SkeletonLoader variant="table" count={5} />
+          </div>
         ) : filteredLeaveTypes.length === 0 ? (
           <EmptyState
-            icon={<IconLeaveTypes size={36} className="text-muted" />}
-            title={searchTerm ? 'No matching policies' : 'No leave policies configured yet'}
+            title={searchTerm ? 'No matching leave categories' : 'No leave categories configured'}
             description={
               searchTerm
-                ? `No leave policy matches "${searchTerm}". Try another search term.`
-                : 'Create policy categories like Annual Leave, Sick Leave, or Maternity/Paternity to enable employee applications.'
+                ? `No leave categories match "${searchTerm}".`
+                : 'Configure standard leave categories such as Annual Leave, Sick Leave, or Parental Leave.'
             }
-            actionText={searchTerm ? null : 'Create First Policy'}
-            onAction={searchTerm ? null : openCreateModal}
+            actionText={searchTerm ? undefined : 'Add First Category'}
+            onAction={searchTerm ? undefined : openCreateModal}
           />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
-                  <th style={{ width: '80px' }}>Policy ID</th>
-                  <th>Policy Title</th>
-                  <th style={{ width: '160px' }}>Default Quota</th>
-                  <th>Description / Guidelines</th>
-                  <th style={{ textAlign: 'right', width: '180px' }}>Actions</th>
+                  <th style={{ width: '80px' }}>ID</th>
+                  <th>Category Name</th>
+                  <th>Default Annual Allowance</th>
+                  <th>Description / Policy Notes</th>
+                  <th style={{ textAlign: 'right', width: '150px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredLeaveTypes.map((lt) => (
                   <tr key={lt.id}>
                     <td>
-                      <span className="code-pill">#{lt.id}</span>
+                      <span className="font-mono text-xs text-muted">#{lt.id}</span>
                     </td>
                     <td>
-                      <span className="policy-name-text">{lt.name}</span>
+                      <strong className="text-primary text-xs font-semibold">{lt.name}</strong>
                     </td>
                     <td>
-                      <span className="quota-badge">
-                        <strong>{lt.defaultDays}</strong> Days / Year
+                      <span className="font-mono text-xs font-semibold px-2 py-0.5 rounded" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                        {lt.defaultDays} Days
                       </span>
                     </td>
                     <td>
-                      <span className="policy-desc-text">
-                        {lt.description || <span className="text-muted italic">No guideline provided</span>}
-                      </span>
+                      <span className="text-xs text-secondary">{lt.description || '—'}</span>
                     </td>
                     <td style={{ textAlign: 'right' }}>
-                      <div className="table-actions">
+                      <div className="flex items-center justify-end gap-1.5">
                         <button
                           type="button"
-                          className="btn-action btn-action-edit"
+                          className="btn btn-secondary btn-sm text-[11px] py-1 px-2"
                           onClick={() => openEditModal(lt)}
-                          title="Edit policy settings"
+                          title="Edit leave category"
                         >
-                          <IconEdit size={14} />
+                          <IconEdit size={12} />
                           <span>Edit</span>
                         </button>
                         <button
                           type="button"
-                          className="btn-action btn-action-delete"
+                          className="btn btn-danger btn-sm text-[11px] py-1 px-2"
                           onClick={() => setDeleteTarget(lt)}
-                          title="Delete policy"
+                          title="Delete leave category"
                         >
-                          <IconTrash size={14} />
+                          <IconTrash size={12} />
                           <span>Delete</span>
                         </button>
                       </div>
@@ -277,69 +276,64 @@ function LeaveTypes() {
         )}
       </div>
 
-      {/* Leave Type Form Modal */}
+      {/* Modal */}
       <Modal
         isOpen={isModalOpen}
-        title={editType ? 'Edit Leave Policy' : 'Configure Leave Policy'}
-        subtitle={editType ? `Editing configuration for #${editType.id}` : 'Define new time-off category and annual entitlement rules'}
+        title={editType ? 'Edit Leave Category' : 'Create Leave Category'}
+        subtitle={editType ? `Updating #${editType.id} (${editType.name})` : 'Register a new leave type with baseline allocation'}
         onClose={closeModal}
+        maxWidth="480px"
       >
-        <form onSubmit={handleSubmit}>
-          <div className="form-group mb-3">
-            <label className="form-label" htmlFor="name">
-              Policy Category Name <span className="text-danger">*</span>
-            </label>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <FormField label="Category Name" required htmlFor="typeName">
             <input
-              id="name"
+              id="typeName"
               name="name"
               type="text"
-              className="form-control"
-              placeholder="e.g. Paid Annual Vacation, Sick Leave, Bereavement"
+              className="form-control text-xs"
+              placeholder="e.g. Annual Leave, Medical Leave"
               value={formData.name}
               onChange={handleChange}
               required
               autoFocus
             />
-          </div>
+          </FormField>
 
-          <div className="form-group mb-3">
-            <label className="form-label" htmlFor="defaultDays">
-              Annual Entitlement (Days) <span className="text-danger">*</span>
-            </label>
+          <FormField
+            label="Default Annual Allowance (Days)"
+            required
+            htmlFor="typeDays"
+            hint="Baseline entitlement allocated to employees when assigned this leave category."
+          >
             <input
-              id="defaultDays"
+              id="typeDays"
               name="defaultDays"
               type="number"
               min="1"
-              max="365"
-              className="form-control"
-              placeholder="e.g. 14"
+              className="form-control text-xs"
+              placeholder="e.g. 15"
               value={formData.defaultDays}
               onChange={handleChange}
               required
             />
-            <span className="form-help-text">Standard number of days allocated annually per employee.</span>
-          </div>
+          </FormField>
 
-          <div className="form-group mb-4">
-            <label className="form-label" htmlFor="description">
-              Policy Description & Guidelines
-            </label>
+          <FormField label="Description / Guidelines" htmlFor="typeDesc">
             <textarea
-              id="description"
+              id="typeDesc"
               name="description"
               rows={3}
-              className="form-control"
-              placeholder="Brief summary of when this policy applies, advance notice requirements, etc."
+              className="form-control text-xs"
+              placeholder="Guidelines, documentation requirements, or policies for this category..."
               value={formData.description}
               onChange={handleChange}
             />
-          </div>
+          </FormField>
 
-          <div className="modal-actions">
+          <div className="modal-actions pt-3 border-t" style={{ borderColor: 'var(--color-border)' }}>
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={closeModal}
               disabled={actionLoading}
             >
@@ -347,14 +341,14 @@ function LeaveTypes() {
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm"
               disabled={actionLoading}
             >
               {actionLoading
-                ? 'Saving Policy...'
+                ? 'Saving...'
                 : editType
-                ? 'Update Policy'
-                : 'Save Policy'}
+                ? 'Update Category'
+                : 'Create Category'}
             </button>
           </div>
         </form>
@@ -363,13 +357,13 @@ function LeaveTypes() {
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={!!deleteTarget}
-        title="Delete Leave Policy"
+        title="Delete Leave Category"
         message={
           deleteTarget
-            ? `Are you sure you want to remove leave policy "${deleteTarget.name}"? If any employee applications are currently filed under this category, the deletion will be blocked by system integrity constraints.`
+            ? `Are you sure you want to delete leave category "${deleteTarget.name}"? If there are active balances or leave records referencing this category, deletion will be rejected.`
             : ''
         }
-        confirmText="Delete Policy"
+        confirmText="Delete Category"
         confirmVariant="danger"
         loading={actionLoading}
         onConfirm={handleDeleteConfirm}

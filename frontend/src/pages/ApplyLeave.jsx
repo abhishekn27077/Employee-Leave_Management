@@ -8,15 +8,16 @@ import {
   leaveBalanceApi,
   extractErrorMessage,
 } from '../services/api';
-import LoadingSpinner from '../components/LoadingSpinner';
 import AlertMessage from '../components/AlertMessage';
 import PageHeader from '../components/PageHeader';
 import Avatar from '../components/Avatar';
+import SkeletonLoader from '../components/SkeletonLoader';
+import FormField from '../components/FormField';
 import {
-  IconCalendar,
   IconCheckCircle,
   IconAlertCircle,
   IconCheck,
+  IconClock,
 } from '../components/Icons';
 
 export default function ApplyLeave() {
@@ -34,10 +35,11 @@ export default function ApplyLeave() {
   const [evaluationError, setEvaluationError] = useState('');
   const [error, setError] = useState('');
 
+  // Mode for Manager/Admin: 'self' vs 'delegated'
+  const [applyMode, setApplyMode] = useState('self');
+
   // Review modal state
   const [showReviewModal, setShowReviewModal] = useState(false);
-
-  const todayStr = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
     employeeId: user?.employeeId ? String(user.employeeId) : '',
@@ -45,6 +47,7 @@ export default function ApplyLeave() {
     startDate: '',
     endDate: '',
     reason: '',
+    handoverNotes: '',
   });
 
   const fetchBalances = async (empId) => {
@@ -72,8 +75,8 @@ export default function ApplyLeave() {
         setEmployees(emps);
         setLeaveTypes(lts);
 
-        // For EMPLOYEE role, strictly lock to authenticated employeeId
-        const activeEmpId = isEmployeeRole && user?.employeeId
+        // Active employee defaults to authenticated user's profile if available
+        const defaultEmpId = user?.employeeId
           ? String(user.employeeId)
           : emps.length > 0
           ? String(emps[0].id)
@@ -82,12 +85,12 @@ export default function ApplyLeave() {
 
         setFormData((prev) => ({
           ...prev,
-          employeeId: activeEmpId,
+          employeeId: defaultEmpId,
           leaveTypeId: prev.leaveTypeId || initialLtId,
         }));
 
-        if (activeEmpId) {
-          fetchBalances(activeEmpId);
+        if (defaultEmpId) {
+          fetchBalances(defaultEmpId);
         }
       } catch (err) {
         setError(extractErrorMessage(err));
@@ -97,7 +100,16 @@ export default function ApplyLeave() {
     };
 
     fetchOptions();
-  }, [isEmployeeRole, user?.employeeId]);
+  }, [user?.employeeId]);
+
+  const handleApplyModeChange = (mode) => {
+    setApplyMode(mode);
+    if (mode === 'self' && user?.employeeId) {
+      const selfId = String(user.employeeId);
+      setFormData((prev) => ({ ...prev, employeeId: selfId }));
+      fetchBalances(selfId);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -151,7 +163,6 @@ export default function ApplyLeave() {
       } catch (err) {
         if (active) {
           setEvaluationError(extractErrorMessage(err));
-          setEvaluationResult(null);
         }
       } finally {
         if (active) {
@@ -160,12 +171,12 @@ export default function ApplyLeave() {
       }
     };
 
-    const timer = setTimeout(runEvaluation, 300);
+    const timer = setTimeout(runEvaluation, 350);
     return () => {
       active = false;
       clearTimeout(timer);
     };
-  }, [formData.employeeId, formData.leaveTypeId, formData.startDate, formData.endDate]);
+  }, [formData]);
 
   const handleOpenReview = (e) => {
     e.preventDefault();
@@ -180,7 +191,7 @@ export default function ApplyLeave() {
       return;
     }
     if (!formData.startDate || !formData.endDate) {
-      setError('Both start date and end date are required.');
+      setError('Both commencement (start) and completion (end) dates are required.');
       return;
     }
     if (new Date(formData.endDate) < new Date(formData.startDate)) {
@@ -201,22 +212,25 @@ export default function ApplyLeave() {
   };
 
   const handleConfirmSubmit = async () => {
-    if (submitting) return; // Prevent accidental duplicate submissions
+    if (submitting) return;
     setSubmitting(true);
     setError('');
+
+    const fullReason = formData.handoverNotes
+      ? `${formData.reason.trim()}\n\n[Handover: ${formData.handoverNotes.trim()}]`
+      : formData.reason.trim();
 
     const payload = {
       employeeId: Number(formData.employeeId),
       leaveTypeId: Number(formData.leaveTypeId),
       startDate: formData.startDate,
       endDate: formData.endDate,
-      reason: formData.reason.trim(),
+      reason: fullReason,
     };
 
     try {
       await leaveApi.apply(payload);
       setShowReviewModal(false);
-      // Redirect to My Leave Requests with positive confirmation message
       navigate('/leaves?scope=mine', {
         state: {
           successMessage: 'Your leave request has been submitted and is awaiting manager approval.',
@@ -232,7 +246,14 @@ export default function ApplyLeave() {
   };
 
   if (loading) {
-    return <LoadingSpinner message="Preparing leave application form..." fullHeight />;
+    return (
+      <div className="space-y-4">
+        <SkeletonLoader variant="lines" count={2} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <SkeletonLoader variant="card" count={2} />
+        </div>
+      </div>
+    );
   }
 
   const selectedLeaveType = leaveTypes.find((lt) => String(lt.id) === formData.leaveTypeId);
@@ -240,24 +261,22 @@ export default function ApplyLeave() {
     (b) => String(b.leaveType?.id) === formData.leaveTypeId
   );
 
-  const applyingEmployee = isEmployeeRole
-    ? null
-    : employees.find((e) => String(e.id) === formData.employeeId);
+  const applyingEmployee = employees.find((e) => String(e.id) === formData.employeeId);
 
-  const employeeDisplayName = isEmployeeRole
-    ? user?.employeeName || user?.username || 'Employee'
+  const employeeDisplayName = isEmployeeRole || applyMode === 'self'
+    ? user?.employeeName || user?.username || applyingEmployee?.name || 'Employee'
     : applyingEmployee?.name || 'Selected Employee';
 
-  const employeeCode = isEmployeeRole
-    ? user?.employeeCode || 'N/A'
+  const employeeCode = isEmployeeRole || applyMode === 'self'
+    ? user?.employeeCode || applyingEmployee?.employeeId || 'N/A'
     : applyingEmployee?.employeeId || 'N/A';
 
-  const departmentName = isEmployeeRole
-    ? user?.departmentName || 'General'
+  const departmentName = isEmployeeRole || applyMode === 'self'
+    ? user?.departmentName || applyingEmployee?.department?.name || 'General'
     : applyingEmployee?.department?.name || 'General';
 
-  const designation = isEmployeeRole
-    ? user?.designation || 'Staff Member'
+  const designation = isEmployeeRole || applyMode === 'self'
+    ? user?.designation || applyingEmployee?.designation || 'Staff Member'
     : applyingEmployee?.designation || 'Staff Member';
 
   const remainingBefore = evaluationResult?.remainingBalance !== undefined
@@ -267,13 +286,33 @@ export default function ApplyLeave() {
   const effectiveDeduction = evaluationResult?.calculatedEffectiveDays || 0;
   const projectedRemainingAfter = Math.max(0, remainingBefore - effectiveDeduction);
 
+  // Stepper state evaluation
+  const step1Complete = Boolean(formData.employeeId);
+  const step2Complete = Boolean(formData.leaveTypeId);
+  const step3Complete = Boolean(formData.startDate && formData.endDate && new Date(formData.endDate) >= new Date(formData.startDate));
+  const step4Complete = Boolean(formData.reason.trim());
+  const step5Ready = step1Complete && step2Complete && step3Complete && step4Complete;
+
+  const currentStep = 
+    !step2Complete ? 2 :
+    !step3Complete ? 3 :
+    !step4Complete ? 4 : 5;
+
+  const stepperItems = [
+    { num: 1, title: 'Employee', isComplete: step1Complete, isCurrent: currentStep === 1 },
+    { num: 2, title: 'Leave Type', isComplete: step2Complete, isCurrent: currentStep === 2 },
+    { num: 3, title: 'Dates', isComplete: step3Complete, isCurrent: currentStep === 3 },
+    { num: 4, title: 'Reason', isComplete: step4Complete, isCurrent: currentStep === 4 },
+    { num: 5, title: 'Review', isComplete: step5Ready, isCurrent: currentStep === 5 },
+  ];
+
   return (
-    <div className="apply-leave-page">
+    <div className="apply-leave-page space-y-5">
       <PageHeader
         title="Apply for Leave"
-        subtitle="Submit a formal time-off booking with automated conflict checking, holiday exemption, and policy review"
+        subtitle="Submit a formal time-off request with live conflict evaluation, holiday exemptions, and balance validation."
         actions={
-          <Link to="/leaves?scope=mine" className="btn btn-secondary">
+          <Link to="/leaves?scope=mine" className="btn btn-secondary btn-sm">
             <span>&larr; My Leave History</span>
           </Link>
         }
@@ -281,418 +320,346 @@ export default function ApplyLeave() {
 
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
 
-      {/* Step Indicator Pipeline */}
-      <div
-        className="card"
-        style={{
-          padding: '1rem 1.5rem',
-          marginBottom: '1.5rem',
-          backgroundColor: '#f8fafc',
-          border: '1px solid #e2e8f0',
-          borderRadius: '0.75rem',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '0.75rem',
-            fontSize: '0.8125rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem' }}>1</span>
-            <span style={{ fontWeight: 600, color: '#0f172a' }}>Employee</span>
-          </div>
-          <span style={{ color: '#cbd5e1' }}>&rarr;</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: formData.leaveTypeId ? '#2563eb' : '#94a3b8', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem' }}>2</span>
-            <span style={{ fontWeight: 600, color: formData.leaveTypeId ? '#0f172a' : '#64748b' }}>Leave Type</span>
-          </div>
-          <span style={{ color: '#cbd5e1' }}>&rarr;</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: formData.startDate && formData.endDate ? '#2563eb' : '#94a3b8', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem' }}>3</span>
-            <span style={{ fontWeight: 600, color: formData.startDate && formData.endDate ? '#0f172a' : '#64748b' }}>Dates</span>
-          </div>
-          <span style={{ color: '#cbd5e1' }}>&rarr;</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: formData.reason ? '#2563eb' : '#94a3b8', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem' }}>4</span>
-            <span style={{ fontWeight: 600, color: formData.reason ? '#0f172a' : '#64748b' }}>Reason</span>
-          </div>
-          <span style={{ color: '#cbd5e1' }}>&rarr;</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: 22, height: 22, borderRadius: '50%', backgroundColor: evaluationResult ? (evaluationResult.canApprove ? '#10b981' : '#ef4444') : '#94a3b8', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem' }}>5</span>
-            <span style={{ fontWeight: 600, color: evaluationResult ? (evaluationResult.canApprove ? '#047857' : '#b91c1c') : '#64748b' }}>Review &amp; Submit</span>
+      {/* Real Professional Stepper */}
+      <div className="card-modern p-3">
+        {/* Desktop Stepper */}
+        <div className="stepper-container">
+          {stepperItems.map((step, idx) => (
+            <div
+              key={step.num}
+              className={`stepper-step ${step.isComplete ? 'completed' : ''} ${step.isCurrent ? 'current' : ''}`}
+            >
+              <div className="stepper-circle">
+                {step.isComplete && step.num < currentStep ? <IconCheck size={12} /> : step.num}
+              </div>
+              <span className="stepper-label">{step.title}</span>
+              {idx < stepperItems.length - 1 && (
+                <div className={`stepper-line ${step.isComplete && step.num < currentStep ? 'active' : ''}`} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Mobile Stepper Bar */}
+        <div className="stepper-mobile-bar">
+          <span className="text-xs font-semibold text-primary">
+            Step {currentStep} of 5: {stepperItems[currentStep - 1]?.title}
+          </span>
+          <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <div
+                key={n}
+                className="w-5 h-1.5 rounded-full"
+                style={{
+                  background: n < currentStep ? 'var(--color-primary)' : n === currentStep ? '#2563eb' : '#e2e8f0',
+                }}
+              />
+            ))}
           </div>
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-          gap: '1.5rem',
-          alignItems: 'start',
-        }}
-      >
-        {/* Left: Application Form */}
-        <div className="card content-card" style={{ padding: '1.5rem' }}>
-          <div style={{ marginBottom: '1.25rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-              Application Details
-            </h2>
-            <p style={{ fontSize: '0.8125rem', color: '#64748b', margin: '0.25rem 0 0' }}>
-              All fields are required. Backend rules authoritatively evaluate balance and team scheduling.
-            </p>
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left: Application Form (7 cols) */}
+        <div className="card-modern lg:col-span-7 p-5">
+          <form onSubmit={handleOpenReview} className="space-y-5">
+            {/* 1. EMPLOYEE IDENTITY SECTION */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-secondary uppercase tracking-wider">
+                  1. Applying Employee
+                </span>
+                {!isEmployeeRole && (
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded text-[11px]">
+                    <button
+                      type="button"
+                      className={`px-2 py-0.5 rounded font-medium ${applyMode === 'self' ? 'bg-white text-primary shadow-xs' : 'text-muted'}`}
+                      onClick={() => handleApplyModeChange('self')}
+                    >
+                      Apply for myself
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-2 py-0.5 rounded font-medium ${applyMode === 'delegated' ? 'bg-white text-primary shadow-xs' : 'text-muted'}`}
+                      onClick={() => handleApplyModeChange('delegated')}
+                    >
+                      On behalf of employee
+                    </button>
+                  </div>
+                )}
+              </div>
 
-          <form onSubmit={handleOpenReview}>
-            {/* Step 1: Employee Identity Card */}
-            {isEmployeeRole ? (
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.375rem' }}>
-                  Applying Employee (Authenticated Self)
-                </label>
+              {isEmployeeRole || applyMode === 'self' ? (
                 <div
-                  style={{
-                    padding: '0.875rem 1rem',
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '0.625rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
+                  className="p-3 rounded-lg flex items-center justify-between"
+                  style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div className="flex items-center gap-2.5">
                     <Avatar name={employeeDisplayName} size="md" />
                     <div>
-                      <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9375rem' }}>
+                      <div className="font-semibold text-primary text-xs">
                         {employeeDisplayName}
                       </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.125rem' }}>
-                        ID: <span className="code-pill-sm">{employeeCode}</span> &bull; {departmentName} &bull; {designation}
+                      <div className="text-[11px] text-muted">
+                        ID: <span className="font-mono font-medium text-secondary">{employeeCode}</span> &bull; {departmentName} &bull; {designation}
                       </div>
                     </div>
                   </div>
-                  <span
-                    style={{
-                      fontSize: '0.6875rem',
-                      fontWeight: 700,
-                      padding: '0.1875rem 0.5rem',
-                      borderRadius: '0.375rem',
-                      background: '#eff6ff',
-                      color: '#1d4ed8',
-                      border: '1px solid #bfdbfe',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    Employee
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded uppercase" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
+                    Applying as Self
                   </span>
                 </div>
-                <input type="hidden" name="employeeId" value={formData.employeeId} />
-              </div>
-            ) : (
-              /* Administrative selection (HR_ADMIN only) */
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label htmlFor="employeeId" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.375rem' }}>
-                  Target Employee <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                <select
-                  id="employeeId"
-                  name="employeeId"
-                  className="form-control"
-                  value={formData.employeeId}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">-- Choose Employee Profile --</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={String(emp.id)}>
-                      {emp.name} ({emp.employeeId}) &mdash; {emp.department?.name || 'General'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Step 2: Leave Type & Balance Preview */}
-            <div style={{ marginBottom: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
-                <label htmlFor="leaveTypeId" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>
-                  Leave Category <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                {currentBalance && (
-                  <span
-                    style={{
-                      fontSize: '0.75rem',
-                      color: currentBalance.remainingBalance > 0 ? '#047857' : '#b91c1c',
-                      fontWeight: 700,
-                    }}
+              ) : (
+                <FormField label="Target Employee" required htmlFor="employeeId" hint="Select the departmental employee you are lodging this request for">
+                  <select
+                    id="employeeId"
+                    name="employeeId"
+                    className="form-control"
+                    value={formData.employeeId}
+                    onChange={handleChange}
+                    required
                   >
-                    Available Balance: {currentBalance.remainingBalance} / {currentBalance.entitlement} days
-                  </span>
-                )}
-              </div>
-              <select
-                id="leaveTypeId"
-                name="leaveTypeId"
-                className="form-control"
-                value={formData.leaveTypeId}
-                onChange={handleChange}
-                required
-              >
-                <option value="">-- Choose Leave Category --</option>
-                {leaveTypes.map((lt) => (
-                  <option key={lt.id} value={String(lt.id)}>
-                    {lt.name} ({lt.defaultDays} Days Annual Allocation)
-                  </option>
-                ))}
-              </select>
-              {selectedLeaveType?.description && (
-                <p style={{ fontSize: '0.75rem', color: '#64748b', margin: '0.375rem 0 0' }}>
-                  {selectedLeaveType.description}
-                </p>
+                    <option value="">-- Choose Employee Profile --</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={String(emp.id)}>
+                        {emp.name} ({emp.employeeId}) &mdash; {emp.department?.name || 'General'}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
               )}
             </div>
 
-            {/* Step 3: Dates */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
-              <div>
-                <label htmlFor="startDate" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.375rem' }}>
-                  Start Date <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                <input
-                  id="startDate"
-                  name="startDate"
-                  type="date"
-                  min={todayStr}
-                  className="form-control"
-                  value={formData.startDate}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-
-              <div>
-                <label htmlFor="endDate" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.375rem' }}>
-                  End Date <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                <input
-                  id="endDate"
-                  name="endDate"
-                  type="date"
-                  min={formData.startDate || todayStr}
-                  className="form-control"
-                  value={formData.endDate}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Step 4: Reason */}
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label htmlFor="reason" style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#334155', marginBottom: '0.375rem' }}>
-                Reason &amp; Business Coverage Context <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <textarea
-                id="reason"
-                name="reason"
-                rows={3}
-                className="form-control"
-                placeholder="State the purpose of this leave and handover arrangements..."
-                value={formData.reason}
-                onChange={handleChange}
+            {/* 2. REQUEST DETAILS SECTION */}
+            <div className="pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <span className="text-xs font-semibold text-secondary uppercase tracking-wider block mb-2">
+                2. Leave Category & Quota
+              </span>
+              <FormField
+                label="Leave Category"
                 required
-              />
+                htmlFor="leaveTypeId"
+                hint={
+                  currentBalance
+                    ? `Available Quota: ${currentBalance.remainingBalance} / ${currentBalance.entitlement} days`
+                    : selectedLeaveType?.description || undefined
+                }
+              >
+                <select
+                  id="leaveTypeId"
+                  name="leaveTypeId"
+                  className="form-control"
+                  value={formData.leaveTypeId}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">-- Choose Leave Category --</option>
+                  {leaveTypes.map((lt) => (
+                    <option key={lt.id} value={String(lt.id)}>
+                      {lt.name} ({lt.defaultDays} Days Annual Allocation)
+                    </option>
+                  ))}
+                </select>
+              </FormField>
             </div>
 
-            {/* Action Bar */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
-              <Link to="/leaves?scope=mine" className="btn btn-secondary">
+            {/* 3. DATES SECTION */}
+            <div className="pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <span className="text-xs font-semibold text-secondary uppercase tracking-wider block mb-2">
+                3. Schedule & Duration
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <FormField label="Start Date" required htmlFor="startDate">
+                  <input
+                    id="startDate"
+                    name="startDate"
+                    type="date"
+                    className="form-control"
+                    value={formData.startDate}
+                    onChange={handleChange}
+                    required
+                  />
+                </FormField>
+
+                <FormField label="End Date" required htmlFor="endDate">
+                  <input
+                    id="endDate"
+                    name="endDate"
+                    type="date"
+                    className="form-control"
+                    min={formData.startDate || undefined}
+                    value={formData.endDate}
+                    onChange={handleChange}
+                    required
+                  />
+                </FormField>
+              </div>
+            </div>
+
+            {/* 4. REASON & WORK HANDOVER SECTION */}
+            <div className="pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              <span className="text-xs font-semibold text-secondary uppercase tracking-wider block mb-2">
+                4. Reason & Handover
+              </span>
+              <FormField
+                label="Reason for Leave"
+                required
+                htmlFor="reason"
+                hint="Provide clear business context for supervisor evaluation"
+              >
+                <textarea
+                  id="reason"
+                  name="reason"
+                  rows={2}
+                  className="form-control"
+                  value={formData.reason}
+                  onChange={handleChange}
+                  placeholder="e.g. Annual wellness leave, medical recuperation, family commitment..."
+                  required
+                />
+              </FormField>
+
+              <FormField
+                label="Work Handover Details (Optional)"
+                htmlFor="handoverNotes"
+                hint="Designated colleagues, active task coverage, or emergency contact"
+              >
+                <input
+                  id="handoverNotes"
+                  name="handoverNotes"
+                  type="text"
+                  className="form-control"
+                  value={formData.handoverNotes}
+                  onChange={handleChange}
+                  placeholder="e.g. Project handover to Sarah Jenkins; available via email for urgent items."
+                />
+              </FormField>
+            </div>
+
+            {/* Form Actions */}
+            <div className="pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--color-border)' }}>
+              <Link to="/leaves?scope=mine" className="btn btn-secondary btn-sm">
                 Cancel
               </Link>
               <button
                 type="submit"
-                id="review-leave-btn"
-                className="btn btn-primary"
-                disabled={submitting || (evaluationResult && !evaluationResult.canApprove) || !!evaluationError}
+                className="btn btn-primary btn-sm"
+                disabled={evaluating || (evaluationResult && !evaluationResult.canApprove)}
               >
-                <IconCheck size={16} />
-                <span>Review Leave Request &rarr;</span>
+                <span>Continue to Review &rarr;</span>
               </button>
             </div>
           </form>
         </div>
 
-        {/* Right: Step 5 Conflict Evaluation & Policy Review Panel */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div
-            className="card content-card"
-            style={{
-              padding: '1.5rem',
-              borderLeft: evaluationResult
-                ? evaluationResult.canApprove
-                  ? '4px solid #10b981'
-                  : '4px solid #ef4444'
-                : '4px solid #94a3b8',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '0.9375rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>
-                Live Conflict &amp; Policy Pre-Check
+        {/* Right: Live Impact & Conflict Analysis Panel (5 cols) */}
+        <div className="space-y-4 lg:col-span-5">
+          <div className="card-modern p-4">
+            <div className="flex items-center justify-between pb-2 mb-3 border-b" style={{ borderColor: 'var(--color-border)' }}>
+              <h3 className="text-xs font-semibold text-primary uppercase m-0 tracking-wider">
+                Live Pre-Submission Analysis
               </h3>
               {evaluating && (
-                <span style={{ fontSize: '0.6875rem', color: '#6366f1', fontWeight: 600 }}>
-                  Evaluating engine...
+                <span className="text-[11px] text-muted flex items-center gap-1 font-mono">
+                  <span className="status-dot status-dot-pending animate-ping" />
+                  Auditing...
                 </span>
               )}
             </div>
 
-            {evaluationError && (
-              <div style={{ padding: '0.75rem', backgroundColor: '#fef2f2', borderRadius: '0.5rem', color: '#991b1b', fontSize: '0.8125rem', marginBottom: '0.75rem' }}>
-                {evaluationError}
+            {evaluationError ? (
+              <div className="p-3 rounded text-xs flex items-start gap-2" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+                <IconAlertCircle size={15} className="flex-shrink-0 mt-0.5" />
+                <span>{evaluationError}</span>
               </div>
-            )}
-
-            {!evaluationResult && !evaluating && !evaluationError && (
-              <div style={{ textAlign: 'center', padding: '1.5rem 1rem', color: '#64748b', fontSize: '0.8125rem' }}>
-                <IconCalendar size={28} className="text-slate-400 mb-2" />
-                <p style={{ margin: 0 }}>
-                  Select dates and a leave category to trigger automated conflict evaluation, holiday exemptions, and team availability calculation.
-                </p>
+            ) : !evaluationResult ? (
+              <div className="py-6 text-center text-muted text-xs">
+                <IconClock size={24} className="mx-auto mb-2 text-slate-300" />
+                Select leave category and dates to run automated working-day calculation and conflict checks.
               </div>
-            )}
-
-            {evaluationResult && (
-              <div>
-                {/* Metric Summary Grid */}
+            ) : (
+              <div className="space-y-3 text-xs">
+                {/* Result Status Banner */}
                 <div
+                  className="p-2.5 rounded flex items-center gap-2"
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: '0.75rem',
-                    marginBottom: '1rem',
+                    background: evaluationResult.canApprove ? '#ecfdf5' : '#fef2f2',
+                    color: evaluationResult.canApprove ? '#047857' : '#b91c1c',
+                    border: `1px solid ${evaluationResult.canApprove ? '#a7f3d0' : '#fecaca'}`,
                   }}
                 >
-                  <div style={{ background: '#f8fafc', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>REQUESTED WINDOW</span>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>
-                      {evaluationResult.calculatedTotalDays} calendar days
-                    </div>
-                  </div>
+                  {evaluationResult.canApprove ? (
+                    <>
+                      <IconCheckCircle size={15} />
+                      <span className="font-semibold">Eligible for Submission</span>
+                    </>
+                  ) : (
+                    <>
+                      <IconAlertCircle size={15} />
+                      <span className="font-semibold">Conflict Detected &mdash; Cannot Submit</span>
+                    </>
+                  )}
+                </div>
 
-                  <div style={{ background: '#f8fafc', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>HOLIDAYS EXEMPT</span>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: evaluationResult.holidayCount > 0 ? '#16a34a' : '#475569', marginTop: '2px' }}>
-                      {evaluationResult.holidayCount} days
-                    </div>
+                {/* Day Deductions Breakdown */}
+                <div className="p-3 rounded space-y-1.5" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-secondary">Calendar Duration:</span>
+                    <span className="font-semibold text-primary font-mono">{evaluationResult.requestedDays} Days</span>
                   </div>
-
-                  <div style={{ background: '#f8fafc', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>EFFECTIVE DEDUCTION</span>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#2563eb', marginTop: '2px' }}>
-                      {evaluationResult.calculatedEffectiveDays} days
-                    </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-secondary">Holiday Exclusions:</span>
+                    <span className="font-medium text-emerald-600 font-mono">-{evaluationResult.holidayCount || 0} Days</span>
                   </div>
-
-                  <div style={{ background: '#f8fafc', padding: '0.625rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                    <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>AVAILABLE BALANCE</span>
-                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>
-                      {remainingBefore} days
-                    </div>
+                  <div className="flex justify-between items-center pt-1 border-t" style={{ borderColor: 'var(--color-border)' }}>
+                    <span className="font-semibold text-primary">Working Days Deducted:</span>
+                    <span className="font-bold text-primary font-mono">{effectiveDeduction} Days</span>
                   </div>
                 </div>
 
-                {/* Team Availability Notice */}
-                {evaluationResult.availabilityInfo && (
-                  <div style={{ padding: '0.625rem 0.75rem', background: '#eff6ff', borderRadius: '0.5rem', border: '1px solid #bfdbfe', marginBottom: '1rem', fontSize: '0.75rem' }}>
-                    <div style={{ fontWeight: 700, color: '#1d4ed8', marginBottom: '0.125rem' }}>
-                      Department Staffing Availability: {Math.round(evaluationResult.availabilityInfo.availabilityPercentage)}%
-                    </div>
-                    <span style={{ color: '#3b82f6' }}>
-                      Min threshold: {evaluationResult.availabilityInfo.minAvailabilityThreshold}% &bull; Available: {evaluationResult.availabilityInfo.availableEmployees} of {evaluationResult.availabilityInfo.totalEmployees} staff
+                {/* Balance Impact */}
+                <div className="p-3 rounded space-y-1.5" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-secondary">Current Quota Balance:</span>
+                    <span className="font-mono font-medium text-primary">{remainingBefore} Days</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-secondary">Projected Balance After:</span>
+                    <span
+                      className="font-mono font-bold"
+                      style={{ color: projectedRemainingAfter > 0 ? '#16a34a' : '#dc2626' }}
+                    >
+                      {projectedRemainingAfter} Days
                     </span>
+                  </div>
+                </div>
+
+                {/* Conflicts / Warnings */}
+                {evaluationResult.conflicts && evaluationResult.conflicts.length > 0 && (
+                  <div className="p-2.5 rounded text-xs space-y-1" style={{ background: '#fff1f2', border: '1px solid #fecaca' }}>
+                    <span className="font-semibold text-rose-700 block">Identified Conflicts:</span>
+                    <ul className="pl-4 space-y-1 list-disc text-rose-600 m-0">
+                      {evaluationResult.conflicts.map((c, idx) => (
+                        <li key={idx}>{c.message || c.type}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
-
-                {/* Status Box */}
-                <div
-                  style={{
-                    padding: '0.75rem 1rem',
-                    borderRadius: '0.5rem',
-                    background: evaluationResult.canApprove ? '#f0fdf4' : '#fef2f2',
-                    border: `1px solid ${evaluationResult.canApprove ? '#bbf7d0' : '#fecaca'}`,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {evaluationResult.canApprove ? (
-                      <IconCheckCircle size={18} className="text-emerald-600" />
-                    ) : (
-                      <IconAlertCircle size={18} className="text-rose-600" />
-                    )}
-                    <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: evaluationResult.canApprove ? '#15803d' : '#b91c1c' }}>
-                      {evaluationResult.canApprove
-                        ? 'Policy Rules Compliant: Application ready to lodge'
-                        : 'Blocking Conflicts Detected'}
-                    </span>
-                  </div>
-
-                  {evaluationResult.conflicts && evaluationResult.conflicts.length > 0 && (
-                    <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#991b1b' }}>
-                      {evaluationResult.conflicts.map((c, idx) => (
-                        <li key={`conf-${idx}`} style={{ marginBottom: '2px' }}>
-                          <strong>[{c.type}]</strong> {c.message}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {evaluationResult.warnings && evaluationResult.warnings.length > 0 && (
-                    <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#b45309' }}>
-                      {evaluationResult.warnings.map((w, idx) => (
-                        <li key={`warn-${idx}`}>{w}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
               </div>
             )}
           </div>
-
-          {/* Quick Balance Breakdown Card */}
-          {employeeBalances.length > 0 && (
-            <div className="card content-card" style={{ padding: '1.25rem' }}>
-              <h4 style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#334155', margin: '0 0 0.75rem', textTransform: 'uppercase' }}>
-                Your Current Quota Allocations
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {employeeBalances.map((b) => (
-                  <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8125rem', padding: '0.375rem 0', borderBottom: '1px solid #f1f5f9' }}>
-                    <span style={{ fontWeight: 600, color: '#1e293b' }}>{b.leaveType?.name}</span>
-                    <span style={{ color: '#64748b' }}>
-                      <strong style={{ color: b.remainingBalance > 0 ? '#059669' : '#e11d48' }}>{b.remainingBalance}d</strong> remaining / {b.entitlement}d
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Review Before Submit Modal */}
       {showReviewModal && (
         <div className="modal-backdrop">
-          <div className="modal-container" style={{ maxWidth: '560px' }}>
+          <div className="modal-container max-w-lg">
             <div className="modal-header">
               <div>
-                <h3 className="modal-title">Review Leave Request</h3>
+                <h3 className="modal-title">Review Leave Application</h3>
                 <p className="modal-subtitle">
-                  Verify request parameters before formal submission to manager approval queue.
+                  Verify request parameters before formal submission to your manager.
                 </p>
               </div>
               <button
@@ -705,96 +672,81 @@ export default function ApplyLeave() {
               </button>
             </div>
 
-            <div className="modal-body">
-              {/* Summary Table */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Employee:</span>
-                  <span style={{ fontWeight: 700, color: '#0f172a' }}>{employeeDisplayName} ({employeeCode})</span>
+            <div className="modal-body space-y-3">
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                  <span className="text-secondary">Employee:</span>
+                  <span className="font-semibold text-primary">{employeeDisplayName} ({employeeCode})</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Department:</span>
-                  <span style={{ fontWeight: 600, color: '#1e293b' }}>{departmentName}</span>
+                <div className="flex justify-between py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                  <span className="text-secondary">Department:</span>
+                  <span className="font-medium text-primary">{departmentName}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Leave Category:</span>
-                  <span style={{ fontWeight: 600, color: '#2563eb' }}>{selectedLeaveType?.name}</span>
+                <div className="flex justify-between py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                  <span className="text-secondary">Leave Category:</span>
+                  <span className="font-semibold text-primary">{selectedLeaveType?.name}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Date Window:</span>
-                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{formData.startDate} &rarr; {formData.endDate}</span>
+                <div className="flex justify-between py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                  <span className="text-secondary">Scheduled Dates:</span>
+                  <span className="font-mono font-semibold text-primary">{formData.startDate} &rarr; {formData.endDate}</span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Working Days Deducted:</span>
-                  <span style={{ fontWeight: 700, color: '#2563eb' }}>
+                <div className="flex justify-between py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                  <span className="text-secondary">Working Days Deducted:</span>
+                  <span className="font-bold text-primary font-mono">
                     {effectiveDeduction} Days
                     {evaluationResult?.holidayCount > 0 && (
-                      <small style={{ color: '#16a34a', fontWeight: 500, marginLeft: '6px' }}>
-                        ({evaluationResult.holidayCount} holiday(s) exempt)
-                      </small>
+                      <span className="text-muted font-normal ml-1">
+                        ({evaluationResult.holidayCount} holiday excluded)
+                      </span>
                     )}
                   </span>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Current Balance:</span>
-                  <span style={{ fontWeight: 600, color: '#0f172a' }}>{remainingBefore} days</span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.875rem' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Balance After Approval:</span>
-                  <span style={{ fontWeight: 700, color: projectedRemainingAfter > 0 ? '#059669' : '#e11d48' }}>
-                    {projectedRemainingAfter} days
+                <div className="flex justify-between py-1.5 border-b" style={{ borderColor: 'var(--color-border)' }}>
+                  <span className="text-secondary">Projected Balance After Approval:</span>
+                  <span className="font-mono font-bold" style={{ color: projectedRemainingAfter > 0 ? '#16a34a' : '#dc2626' }}>
+                    {projectedRemainingAfter} Days
                   </span>
                 </div>
 
-                <div style={{ padding: '0.5rem 0', fontSize: '0.875rem' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500, display: 'block', marginBottom: '0.25rem' }}>Reason &amp; Context:</span>
-                  <div style={{ padding: '0.625rem 0.75rem', background: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0', color: '#334155', fontStyle: 'italic' }}>
+                <div className="pt-2">
+                  <span className="text-secondary block mb-1">Reason:</span>
+                  <div className="p-2.5 rounded text-xs italic" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
                     "{formData.reason}"
                   </div>
                 </div>
-              </div>
 
-              {/* Status Alert */}
-              <div
-                style={{
-                  padding: '0.75rem 1rem',
-                  borderRadius: '0.5rem',
-                  backgroundColor: '#f0fdf4',
-                  border: '1px solid #bbf7d0',
-                  color: '#15803d',
-                  fontSize: '0.8125rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                }}
-              >
-                <IconCheckCircle size={18} />
-                <span>Conflict engine verified: This request will be submitted with <strong>PENDING</strong> status.</span>
+                {formData.handoverNotes && (
+                  <div className="pt-1">
+                    <span className="text-secondary block mb-1">Handover Notes:</span>
+                    <div className="p-2.5 rounded text-xs" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                      {formData.handoverNotes}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="modal-actions">
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-sm"
                 onClick={() => setShowReviewModal(false)}
                 disabled={submitting}
               >
-                &larr; Back &amp; Edit
+                &larr; Back & Edit
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
+                className="btn btn-primary btn-sm"
                 onClick={handleConfirmSubmit}
                 disabled={submitting}
               >
-                {submitting ? 'Submitting Application...' : 'Confirm & Submit Leave Request'}
+                {submitting ? 'Submitting...' : 'Confirm & Submit'}
               </button>
             </div>
           </div>

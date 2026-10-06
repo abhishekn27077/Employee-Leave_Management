@@ -204,7 +204,7 @@ export default function Header({ onToggleSidebar }) {
                       }}
                       title="Organization-wide administrative access"
                     >
-                      <span>🌐 Org-wide Access</span>
+                      <span>Org-wide Access</span>
                     </span>
                   ) : department ? (
                     <span
@@ -216,7 +216,7 @@ export default function Header({ onToggleSidebar }) {
                         gap: '0.1875rem',
                       }}
                     >
-                      <span>🏢 {department}{user.role === 'MANAGER' ? ' (Team Scope)' : ''}</span>
+                      <span>{department}{user.role === 'MANAGER' ? ' (Team Scope)' : ''}</span>
                     </span>
                   ) : null}
                 </div>

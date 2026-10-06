@@ -3,25 +3,31 @@ import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { leaveApi, extractErrorMessage } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
-import LoadingSpinner from '../components/LoadingSpinner';
+import SkeletonLoader from '../components/SkeletonLoader';
 import AlertMessage from '../components/AlertMessage';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
-import ConfirmDialog from '../components/ConfirmDialog';
 import Avatar from '../components/Avatar';
 import {
-  IconLeaves,
   IconPlus,
   IconSearch,
   IconCheck,
   IconX,
   IconBan,
   IconRefresh,
-  IconCalendar,
-  IconCheckCircle,
-  IconAlertCircle,
   IconInfo,
 } from '../components/Icons';
+
+function formatHumanDate(dateStr) {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr + (dateStr.length === 10 ? 'T00:00:00' : ''));
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+}
 
 function Leaves() {
   const { user } = useAuth();
@@ -46,7 +52,6 @@ function Leaves() {
     leave: null,
     actionType: null, // 'approve' | 'reject' | null
   });
-  const [evaluatingConflicts, setEvaluatingConflicts] = useState(false);
   const [conflictData, setConflictData] = useState(null);
 
   // Cancel Confirmation Modal State
@@ -59,7 +64,6 @@ function Leaves() {
   useEffect(() => {
     if (location.state?.successMessage) {
       setSuccess(location.state.successMessage);
-      // Clear state so reload doesn't keep showing it
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
@@ -101,15 +105,12 @@ function Leaves() {
       actionType: defaultAction,
     });
     setConflictData(null);
-    setEvaluatingConflicts(true);
 
     try {
       const res = await leaveApi.checkConflicts(leave.id);
       setConflictData(res.data);
     } catch (err) {
       console.error('Error pre-checking leave conflicts:', err);
-    } finally {
-      setEvaluatingConflicts(false);
     }
   };
 
@@ -134,10 +135,10 @@ function Leaves() {
     try {
       if (actionType === 'approve') {
         await leaveApi.approve(leave.id);
-        setSuccess(`Leave request #${leave.id} for ${empName} has been APPROVED. Leave balance deducted and recorded in audit log.`);
+        setSuccess(`Leave request #${leave.id} for ${empName} has been APPROVED.`);
       } else if (actionType === 'reject') {
         await leaveApi.reject(leave.id);
-        setSuccess(`Leave request #${leave.id} for ${empName} has been REJECTED. Balance remains intact and decision recorded in audit log.`);
+        setSuccess(`Leave request #${leave.id} for ${empName} has been REJECTED.`);
       }
       closeReviewModal();
       fetchLeaves();
@@ -211,71 +212,59 @@ function Leaves() {
     if (user?.role === 'EMPLOYEE') {
       return {
         title: 'My Leave Requests',
-        subtitle: 'Track live status of your time-off applications, inspect decision audits, and manage pending bookings',
+        subtitle: 'Track live status of your time-off applications, inspect decision audits, and manage bookings.',
       };
     }
     if (isManager) {
       if (scope === 'mine') {
         return {
           title: 'My Personal Leave Requests',
-          subtitle: 'Your personal time-off applications and status lifecycle history',
+          subtitle: 'Your personal time-off applications and status lifecycle history.',
         };
       }
       return {
         title: 'Team Leave Approvals',
-        subtitle: 'Review department time-off applications, pre-audit schedule conflicts, and execute approval decisions',
+        subtitle: 'Review department time-off applications, pre-audit schedule conflicts, and execute decisions.',
       };
     }
     return {
-      title: 'Enterprise Leave Requests',
-      subtitle: 'Organization-wide leave request tracking, review oversight, and administrative governance',
+      title: 'Enterprise Leave Registry',
+      subtitle: 'Organization-wide leave request tracking, review oversight, and administrative governance.',
     };
   };
 
   const headerInfo = getHeaderInfo();
 
   return (
-    <div className="leaves-page">
+    <div className="leaves-page space-y-6">
       <PageHeader
         title={headerInfo.title}
         subtitle={headerInfo.subtitle}
         badge={`${filteredLeaves.length} Listed`}
         actions={
-          <>
+          <div className="flex items-center gap-2.5 flex-wrap">
             {isManager && (
-              <div style={{ display: 'inline-flex', background: '#e2e8f0', padding: '3px', borderRadius: '8px', marginRight: '8px' }}>
+              <div className="inline-flex rounded-lg p-1 border" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
                 <button
                   type="button"
                   onClick={() => setSearchParams({ scope: 'approvals' })}
+                  className="px-3 py-1 text-xs font-semibold rounded-md border-none cursor-pointer transition-all"
                   style={{
-                    padding: '5px 12px',
-                    fontSize: '12.5px',
-                    fontWeight: 600,
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    background: scope !== 'mine' ? '#ffffff' : 'transparent',
-                    color: scope !== 'mine' ? '#0f172a' : '#64748b',
-                    boxShadow: scope !== 'mine' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-                    transition: 'all 0.15s ease',
+                    background: scope !== 'mine' ? 'var(--color-surface)' : 'transparent',
+                    color: scope !== 'mine' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                    boxShadow: scope !== 'mine' ? 'var(--shadow-sm)' : 'none',
                   }}
                 >
-                  Team Approvals Queue
+                  Team Queue
                 </button>
                 <button
                   type="button"
                   onClick={() => setSearchParams({ scope: 'mine' })}
+                  className="px-3 py-1 text-xs font-semibold rounded-md border-none cursor-pointer transition-all"
                   style={{
-                    padding: '5px 12px',
-                    fontSize: '12.5px',
-                    fontWeight: 600,
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    background: scope === 'mine' ? '#ffffff' : 'transparent',
-                    color: scope === 'mine' ? '#0f172a' : '#64748b',
-                    boxShadow: scope === 'mine' ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
-                    transition: 'all 0.15s ease',
+                    background: scope === 'mine' ? 'var(--color-surface)' : 'transparent',
+                    color: scope === 'mine' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                    boxShadow: scope === 'mine' ? 'var(--shadow-sm)' : 'none',
                   }}
                 >
                   My Requests
@@ -284,107 +273,120 @@ function Leaves() {
             )}
             <button
               type="button"
-              className="btn btn-secondary"
+              className="btn btn-secondary btn-sm"
               onClick={fetchLeaves}
               disabled={loading || actionLoading}
             >
-              <IconRefresh size={16} />
+              <IconRefresh size={14} className={loading ? 'animate-spin' : ''} />
               <span>Refresh</span>
             </button>
-            <Link to="/apply-leave" className="btn btn-primary">
-              <IconPlus size={16} />
+            <Link to="/apply-leave" className="btn btn-primary btn-sm">
+              <IconPlus size={14} />
               <span>Apply for Leave</span>
             </Link>
-          </>
+          </div>
         }
       />
 
       <AlertMessage type="error" message={error} onClose={() => setError('')} />
       <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />
 
-      {/* Status Filter Tabs */}
-      <div className="filter-tabs-bar">
-        {['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map((tab) => {
-          const count =
-            tab === 'ALL'
-              ? leaves.length
-              : leaves.filter((l) => (l.status || '').toUpperCase() === tab).length;
+      {/* Modern Filter Toolbar Bar */}
+      <div className="card-modern p-3 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map((tab) => {
+            const count =
+              tab === 'ALL'
+                ? leaves.length
+                : leaves.filter((l) => (l.status || '').toUpperCase() === tab).length;
 
-          return (
-            <button
-              key={tab}
-              type="button"
-              className={`filter-tab-btn ${activeFilter === tab ? 'active' : ''}`}
-              onClick={() => setActiveFilter(tab)}
-            >
-              <span className="tab-label">{tab.charAt(0) + tab.slice(1).toLowerCase()}</span>
-              <span className={`tab-badge tab-badge-${tab.toLowerCase()}`}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
+            const isActive = activeFilter === tab;
 
-      {/* Search Toolbar & Table Card */}
-      <div className="content-card">
-        <div className="card-toolbar">
-          <div className="search-input-wrapper">
-            <IconSearch size={16} className="search-icon" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search by employee, ID, department, policy, or reason..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
+            return (
               <button
+                key={tab}
                 type="button"
-                className="search-clear-btn"
-                onClick={() => setSearchTerm('')}
-                aria-label="Clear search"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer border transition-all flex items-center gap-2"
+                style={{
+                  background: isActive ? 'var(--color-primary-light)' : 'transparent',
+                  borderColor: isActive ? 'var(--color-primary)' : 'transparent',
+                  color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
+                }}
+                onClick={() => setActiveFilter(tab)}
               >
-                &times;
+                <span>{tab.charAt(0) + tab.slice(1).toLowerCase()}</span>
+                <span
+                  className="text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold"
+                  style={{
+                    background: isActive ? 'var(--color-primary)' : 'var(--color-bg-secondary)',
+                    color: isActive ? '#ffffff' : 'var(--color-text-muted)',
+                  }}
+                >
+                  {count}
+                </span>
               </button>
-            )}
-          </div>
-          <span className="toolbar-count">
-            Showing {filteredLeaves.length} of {leaves.length} records
-          </span>
+            );
+          })}
         </div>
 
+        <div className="search-input-wrapper min-w-[260px]">
+          <IconSearch size={14} className="search-icon" />
+          <input
+            type="text"
+            className="search-input text-xs"
+            placeholder="Search employee, ID, reason..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              className="search-clear-btn"
+              onClick={() => setSearchTerm('')}
+              aria-label="Clear search"
+            >
+              &times;
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Table Card */}
+      <div className="card-modern">
         {loading ? (
-          <LoadingSpinner message="Fetching leave applications and workflow history..." />
+          <div className="p-6">
+            <SkeletonLoader variant="table" count={6} />
+          </div>
         ) : filteredLeaves.length === 0 ? (
           <EmptyState
-            icon={<IconLeaves size={36} className="text-muted" />}
             title={
               searchTerm
-                ? 'No matching requests'
+                ? 'No matching requests found'
                 : `No ${activeFilter !== 'ALL' ? activeFilter.toLowerCase() : ''} applications`
             }
             description={
               searchTerm
-                ? `No leave requests match your search "${searchTerm}".`
+                ? `No leave records match "${searchTerm}". Try a different keyword.`
                 : activeFilter === 'PENDING'
-                ? 'The approval queue is currently completely clear.'
+                ? 'The approval queue is completely clear.'
                 : `No applications currently have status '${activeFilter}'.`
             }
-            actionText={leaves.length === 0 ? 'Submit First Application' : null}
-            onAction={leaves.length === 0 ? () => window.location.assign('/apply-leave') : null}
+            actionText={leaves.length === 0 ? 'Submit First Application' : undefined}
+            actionLink={leaves.length === 0 ? '/apply-leave' : undefined}
           />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table">
+          <div className="table-wrapper-modern">
+            <table className="table-modern">
               <thead>
                 <tr>
-                  <th style={{ width: '70px' }}>Ref #</th>
-                  <th>Employee &amp; Department</th>
-                  <th>Leave Type</th>
-                  <th>Time-Off Window</th>
+                  <th style={{ width: '80px' }}>Ref #</th>
+                  <th>Employee & Department</th>
+                  <th>Leave Category</th>
+                  <th>Dates Requested</th>
                   <th>Duration</th>
                   <th>Reason / Context</th>
-                  <th>Current Status</th>
-                  <th style={{ textAlign: 'center', width: '220px' }}>Actions</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'center', width: '200px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -395,100 +397,98 @@ function Leaves() {
                   const canCancel = (isHrAdmin || (isManager && isOwnLeave(leave)) || user?.role === 'EMPLOYEE') && isPending;
 
                   return (
-                    <tr key={leave.id} className={isPending ? 'row-pending-highlight' : ''}>
+                    <tr key={leave.id}>
                       <td>
-                        <span className="code-pill">#{leave.id}</span>
+                        <span className="font-mono text-xs text-muted">#{leave.id}</span>
                       </td>
                       <td>
-                        <div className="employee-cell-avatar">
-                          <Avatar name={empName} size={34} />
-                          <div className="employee-info-cell">
-                            <span className="employee-primary-name">{empName}</span>
-                            <div className="cell-subtext-group">
-                              <span className="code-pill-sm">{leave.employee?.employeeId || '—'}</span>
-                              <span className="dept-tag-sm">{leave.employee?.department?.name || 'General'}</span>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={empName} size="sm" />
+                          <div>
+                            <span className="font-semibold text-primary text-xs block">{empName}</span>
+                            <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                              <span className="font-mono">{leave.employee?.employeeId || '—'}</span>
+                              <span>&bull;</span>
+                              <span>{leave.employee?.department?.name || 'General'}</span>
                             </div>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <span className="policy-badge">{leave.leaveType?.name || 'Standard'}</span>
+                        <span className="text-xs font-medium text-primary">
+                          {leave.leaveType?.name || 'Standard'}
+                        </span>
                       </td>
                       <td>
-                        <div className="date-range-cell">
-                          <IconCalendar size={13} className="text-muted" />
-                          <span>{leave.startDate} &rarr; {leave.endDate}</span>
+                        <div className="text-xs text-secondary font-medium">
+                          {formatHumanDate(leave.startDate)} &ndash; {formatHumanDate(leave.endDate)}
                         </div>
                       </td>
                       <td>
-                        <span className="duration-pill">
+                        <span className="px-2 py-0.5 rounded text-xs font-semibold" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
                           {calculateDuration(leave.startDate, leave.endDate)}
                         </span>
                       </td>
                       <td>
-                        <span className="reason-text" title={leave.reason}>
-                          {leave.reason}
+                        <span className="text-xs text-secondary truncate max-w-xs block" title={leave.reason}>
+                          {leave.reason || '—'}
                         </span>
                       </td>
                       <td>
                         <StatusBadge status={leave.status} />
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <div className="workflow-action-buttons">
-                          {/* Details Inspector Button */}
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
-                            className="btn-action-flow btn-secondary"
+                            className="btn btn-secondary btn-sm text-[11px] py-1 px-2"
                             onClick={() => setSelectedLeave(leave)}
-                            title="Inspect full details and status timeline"
-                            style={{ padding: '3px 8px', fontSize: '11px', background: '#f8fafc' }}
+                            title="Inspect details and timeline"
                           >
-                            <IconInfo size={13} />
+                            <IconInfo size={12} />
                             <span>Details</span>
                           </button>
 
-                          {/* Manager / Admin Approval Controls */}
                           {canManage && (
                             <>
                               <button
                                 type="button"
-                                className="btn-action-flow btn-flow-approve"
+                                className="btn btn-primary btn-sm text-[11px] py-1 px-2"
                                 onClick={() => openReviewModal(leave, 'approve')}
                                 disabled={actionLoading}
-                                title="Review and approve this leave request"
+                                title="Approve"
                               >
-                                <IconCheck size={13} />
+                                <IconCheck size={12} />
                                 <span>Approve</span>
                               </button>
                               <button
                                 type="button"
-                                className="btn-action-flow btn-flow-reject"
+                                className="btn btn-danger btn-sm text-[11px] py-1 px-2"
                                 onClick={() => openReviewModal(leave, 'reject')}
                                 disabled={actionLoading}
-                                title="Review and reject this leave request"
+                                title="Reject"
                               >
-                                <IconX size={13} />
+                                <IconX size={12} />
                                 <span>Reject</span>
                               </button>
                             </>
                           )}
 
-                          {/* Employee / Self Cancellation Controls */}
                           {canCancel && (
                             <button
                               type="button"
-                              className="btn-action-flow btn-flow-cancel"
+                              className="btn btn-secondary btn-sm text-[11px] py-1 px-2"
                               onClick={() => openCancelModal(leave)}
                               disabled={actionLoading}
-                              title="Cancel this pending leave request"
+                              title="Cancel request"
                             >
-                              <IconBan size={13} />
+                              <IconBan size={12} />
                               <span>Cancel</span>
                             </button>
                           )}
 
-                          {!isPending && (
-                            <span className="action-finalized-label">Finalized</span>
+                          {!isPending && !canManage && (
+                            <span className="text-[11px] text-muted font-mono">Finalized</span>
                           )}
                         </div>
                       </td>
@@ -501,16 +501,14 @@ function Leaves() {
         )}
       </div>
 
-      {/* =========================================================================
-          1. LEAVE DETAILS & LIFECYCLE TIMELINE MODAL (For Employees & All Roles)
-          ========================================================================= */}
+      {/* LEAVE DETAILS MODAL */}
       {selectedLeave && (
         <div className="modal-backdrop">
-          <div className="modal-container" style={{ maxWidth: '600px' }}>
+          <div className="modal-container max-w-lg">
             <div className="modal-header">
               <div>
                 <h3 className="modal-title">Leave Request #{selectedLeave.id}</h3>
-                <p className="modal-subtitle">Comprehensive request parameters &amp; workflow lifecycle state</p>
+                <p className="modal-subtitle">Full parameters and lifecycle record</p>
               </div>
               <button
                 type="button"
@@ -521,200 +519,57 @@ function Leaves() {
               </button>
             </div>
 
-            <div className="modal-body">
-              {/* Status Banner */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.875rem 1rem',
-                  borderRadius: '0.625rem',
-                  backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  marginBottom: '1.25rem',
-                }}
-              >
+            <div className="modal-body space-y-4">
+              <div className="flex justify-between items-center p-3 rounded-lg border" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
                 <div>
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, display: 'block' }}>
-                    CURRENT LIFECYCLE STATUS
-                  </span>
-                  <div style={{ marginTop: '0.25rem' }}>
+                  <span className="text-[11px] text-muted font-semibold block">CURRENT STATUS</span>
+                  <div className="mt-1">
                     <StatusBadge status={selectedLeave.status} />
                   </div>
                 </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, display: 'block' }}>
-                    SUBMITTED ON
-                  </span>
-                  <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0f172a' }}>
-                    {selectedLeave.appliedAt ? new Date(selectedLeave.appliedAt).toLocaleDateString() : '—'}
+                <div className="text-right">
+                  <span className="text-[11px] text-muted font-semibold block">APPLIED ON</span>
+                  <span className="text-xs font-mono text-secondary mt-1 block">
+                    {selectedLeave.appliedAt ? selectedLeave.appliedAt.substring(0, 10) : selectedLeave.startDate}
                   </span>
                 </div>
               </div>
 
-              {/* Status Lifecycle Timeline (Section 9) */}
-              <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '0.625rem', border: '1px solid #e2e8f0' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.875rem' }}>
-                  Workflow Lifecycle Timeline
-                </span>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {/* Step 1: Submitted */}
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                    <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#10b981', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem', flexShrink: 0 }}>
-                      ✓
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: '#0f172a' }}>
-                        Application Submitted
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                        Lodge parameters validated and initial audit recorded in system ledger.
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 2: Pending Approval */}
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                    <div style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: '50%',
-                      background: selectedLeave.status === 'PENDING' ? '#f59e0b' : '#10b981',
-                      color: '#fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 700,
-                      fontSize: '0.75rem',
-                      flexShrink: 0,
-                    }}>
-                      {selectedLeave.status === 'PENDING' ? '●' : '✓'}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: '#0f172a' }}>
-                        Managerial Review
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                        {selectedLeave.status === 'PENDING'
-                          ? 'Awaiting review decision by department manager / authorized approver.'
-                          : 'Managerial review phase completed.'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 3: Final State */}
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-                    <div style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: '50%',
-                      background: selectedLeave.status === 'APPROVED'
-                        ? '#10b981'
-                        : selectedLeave.status === 'REJECTED'
-                        ? '#ef4444'
-                        : selectedLeave.status === 'CANCELLED'
-                        ? '#64748b'
-                        : '#cbd5e1',
-                      color: '#fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 700,
-                      fontSize: '0.75rem',
-                      flexShrink: 0,
-                    }}>
-                      {selectedLeave.status === 'PENDING' ? '3' : '✓'}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.8125rem', color: '#0f172a' }}>
-                        {selectedLeave.status === 'APPROVED' && 'Decision: Approved'}
-                        {selectedLeave.status === 'REJECTED' && 'Decision: Rejected'}
-                        {selectedLeave.status === 'CANCELLED' && 'Status: Cancelled by Applicant'}
-                        {selectedLeave.status === 'PENDING' && 'Pending Decision Outcome'}
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                        {selectedLeave.status === 'APPROVED' && 'Leave quota deducted and dates reserved on company schedule.'}
-                        {selectedLeave.status === 'REJECTED' && 'Application declined. Quota balance untouched and audit entry logged.'}
-                        {selectedLeave.status === 'CANCELLED' && 'Booking cancelled by user. Dates released back to team availability.'}
-                        {selectedLeave.status === 'PENDING' && 'Outcome will be finalized upon manager decision.'}
-                      </div>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-2 gap-3 text-xs p-3 rounded-lg border" style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+                <div>
+                  <span className="text-muted block text-[11px]">Employee</span>
+                  <span className="font-semibold text-primary mt-0.5 block">{selectedLeave.employee?.name}</span>
+                </div>
+                <div>
+                  <span className="text-muted block text-[11px]">Department</span>
+                  <span className="text-secondary mt-0.5 block">{selectedLeave.employee?.department?.name || 'General'}</span>
+                </div>
+                <div>
+                  <span className="text-muted block text-[11px]">Leave Category</span>
+                  <span className="font-medium text-primary mt-0.5 block">{selectedLeave.leaveType?.name}</span>
+                </div>
+                <div>
+                  <span className="text-muted block text-[11px]">Duration</span>
+                  <span className="font-semibold text-primary mt-0.5 block">{calculateDuration(selectedLeave.startDate, selectedLeave.endDate)}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted block text-[11px]">Schedule Window</span>
+                  <span className="font-mono text-secondary mt-0.5 block">{selectedLeave.startDate} &rarr; {selectedLeave.endDate}</span>
                 </div>
               </div>
 
-              {/* Data Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div style={{ padding: '0.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}>
-                  <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>EMPLOYEE</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f172a' }}>
-                    {selectedLeave.employee?.name}
-                  </span>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                    {selectedLeave.employee?.employeeId} &bull; {selectedLeave.employee?.department?.name || 'General'}
-                  </div>
+              {selectedLeave.reason && (
+                <div className="p-3 rounded-lg border text-xs" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+                  <span className="text-secondary font-semibold block mb-1">Reason:</span>
+                  <p className="text-primary italic m-0">"{selectedLeave.reason}"</p>
                 </div>
-
-                <div style={{ padding: '0.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}>
-                  <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>LEAVE CATEGORY</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#2563eb' }}>
-                    {selectedLeave.leaveType?.name}
-                  </span>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                    {selectedLeave.leaveType?.defaultDays} days standard quota
-                  </div>
-                </div>
-
-                <div style={{ padding: '0.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}>
-                  <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>SCHEDULE WINDOW</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f172a' }}>
-                    {selectedLeave.startDate} &rarr; {selectedLeave.endDate}
-                  </span>
-                </div>
-
-                <div style={{ padding: '0.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}>
-                  <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>CALCULATED DURATION</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f172a' }}>
-                    {calculateDuration(selectedLeave.startDate, selectedLeave.endDate)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Reason */}
-              <div style={{ padding: '0.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}>
-                <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
-                  BUSINESS REASON / COVERAGE CONTEXT
-                </span>
-                <span style={{ fontSize: '0.8125rem', color: '#334155', fontStyle: 'italic' }}>
-                  "{selectedLeave.reason || 'No specific notes entered.'}"
-                </span>
-              </div>
+              )}
             </div>
 
             <div className="modal-actions">
-              {/* Cancellation button for eligible pending leave */}
-              {selectedLeave.status === 'PENDING' && (isHrAdmin || (isManager && isOwnLeave(selectedLeave)) || user?.role === 'EMPLOYEE') && (
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  style={{ color: '#e11d48', borderColor: '#fecdd3' }}
-                  onClick={() => {
-                    const l = selectedLeave;
-                    setSelectedLeave(null);
-                    openCancelModal(l);
-                  }}
-                >
-                  <IconBan size={14} />
-                  <span>Cancel Request</span>
-                </button>
-              )}
-
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-sm"
                 onClick={() => setSelectedLeave(null)}
               >
                 Close
@@ -724,20 +579,16 @@ function Leaves() {
         </div>
       )}
 
-      {/* =========================================================================
-          2. MANAGER REVIEW & DECISION WORKSPACE MODAL (Section 6 & 7)
-          ========================================================================= */}
-      {reviewModal.isOpen && reviewModal.leave && (
+      {/* QUICK DECISION MODAL */}
+      {reviewModal.isOpen && (
         <div className="modal-backdrop">
-          <div className="modal-container" style={{ maxWidth: '640px' }}>
+          <div className="modal-container max-w-md">
             <div className="modal-header">
               <div>
                 <h3 className="modal-title">
-                  Manager Review: Leave Request #{reviewModal.leave.id}
+                  {reviewModal.actionType === 'approve' ? 'Approve Request' : 'Reject Request'}
                 </h3>
-                <p className="modal-subtitle">
-                  Verify balance sufficiency, overlapping schedules &amp; execute managerial decision
-                </p>
+                <p className="modal-subtitle">Leave #{reviewModal.leave?.id} &bull; {reviewModal.leave?.employee?.name}</p>
               </div>
               <button
                 type="button"
@@ -749,203 +600,87 @@ function Leaves() {
               </button>
             </div>
 
-            <div className="modal-body">
-              {/* Applicant Header */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.875rem 1rem',
-                  borderRadius: '0.625rem',
-                  backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  marginBottom: '1rem',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <Avatar name={reviewModal.leave.employee?.name} size="md" />
-                  <div>
-                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9375rem' }}>
-                      {reviewModal.leave.employee?.name}
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                      ID: {reviewModal.leave.employee?.employeeId} &bull; Dept: {reviewModal.leave.employee?.department?.name || 'General'}
-                    </div>
-                  </div>
-                </div>
+            <div className="modal-body space-y-3 text-xs">
+              <p className="text-secondary m-0">
+                Are you sure you want to <strong>{reviewModal.actionType?.toUpperCase()}</strong> the leave request of{' '}
+                <strong className="text-primary">{reviewModal.leave?.employee?.name}</strong> for{' '}
+                <span className="font-mono">{reviewModal.leave?.startDate} &rarr; {reviewModal.leave?.endDate}</span>?
+              </p>
 
-                <div style={{ textAlign: 'right' }}>
-                  <span className="policy-badge">{reviewModal.leave.leaveType?.name}</span>
-                </div>
-              </div>
-
-              {/* Time-off Window & Grounds */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.75rem', marginBottom: '1rem' }}>
-                <div style={{ padding: '0.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}>
-                  <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>REQUESTED DATES</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f172a' }}>
-                    {reviewModal.leave.startDate} &rarr; {reviewModal.leave.endDate}
+              {conflictData && (
+                <div className="p-3 rounded border" style={{ background: conflictData.canApprove ? 'var(--color-success-light)' : 'var(--color-danger-light)', borderColor: conflictData.canApprove ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                  <span className="font-semibold block" style={{ color: conflictData.canApprove ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                    {conflictData.canApprove ? 'Conflict Pre-Check: Compliant' : 'Conflict Pre-Check: Conflicts Detected'}
                   </span>
                 </div>
-
-                <div style={{ padding: '0.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.5rem' }}>
-                  <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block' }}>WINDOW DURATION</span>
-                  <span style={{ fontWeight: 700, fontSize: '0.875rem', color: '#2563eb' }}>
-                    {calculateDuration(reviewModal.leave.startDate, reviewModal.leave.endDate)}
-                  </span>
-                </div>
-              </div>
-
-              <div style={{ padding: '0.75rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '0.5rem', marginBottom: '1rem' }}>
-                <span style={{ fontSize: '0.6875rem', color: '#64748b', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
-                  EMPLOYEE JUSTIFICATION
-                </span>
-                <span style={{ fontSize: '0.8125rem', color: '#334155', fontStyle: 'italic' }}>
-                  "{reviewModal.leave.reason}"
-                </span>
-              </div>
-
-              {/* Automated Conflict & Staffing Audit */}
-              <div style={{ marginBottom: '1rem' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '0.5rem' }}>
-                  Automated Conflict &amp; Availability Audit
-                </span>
-
-                {evaluatingConflicts ? (
-                  <div style={{ padding: '0.875rem', background: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.8125rem', color: '#64748b', textAlign: 'center' }}>
-                    <LoadingSpinner message="Auditing leave quotas, official holidays, overlaps & team availability..." />
-                  </div>
-                ) : conflictData ? (
-                  <div>
-                    {/* Metrics grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                      <div style={{ padding: '0.5rem', background: '#f8fafc', borderRadius: '0.375rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                        <span style={{ fontSize: '0.625rem', color: '#64748b', fontWeight: 600, display: 'block' }}>CALENDAR</span>
-                        <strong style={{ fontSize: '0.875rem', color: '#0f172a' }}>{conflictData.calculatedTotalDays}d</strong>
-                      </div>
-                      <div style={{ padding: '0.5rem', background: '#f8fafc', borderRadius: '0.375rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                        <span style={{ fontSize: '0.625rem', color: '#64748b', fontWeight: 600, display: 'block' }}>HOLIDAYS</span>
-                        <strong style={{ fontSize: '0.875rem', color: '#16a34a' }}>{conflictData.holidayCount}d</strong>
-                      </div>
-                      <div style={{ padding: '0.5rem', background: '#f8fafc', borderRadius: '0.375rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                        <span style={{ fontSize: '0.625rem', color: '#64748b', fontWeight: 600, display: 'block' }}>DEDUCTED</span>
-                        <strong style={{ fontSize: '0.875rem', color: '#2563eb' }}>{conflictData.calculatedEffectiveDays}d</strong>
-                      </div>
-                      <div style={{ padding: '0.5rem', background: '#f8fafc', borderRadius: '0.375rem', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                        <span style={{ fontSize: '0.625rem', color: '#64748b', fontWeight: 600, display: 'block' }}>BALANCE</span>
-                        <strong style={{ fontSize: '0.875rem', color: '#0f172a' }}>{conflictData.remainingBalance}d</strong>
-                      </div>
-                    </div>
-
-                    {/* Conflict notification */}
-                    <div
-                      style={{
-                        padding: '0.75rem 1rem',
-                        borderRadius: '0.5rem',
-                        background: conflictData.canApprove ? '#f0fdf4' : '#fef2f2',
-                        border: `1px solid ${conflictData.canApprove ? '#bbf7d0' : '#fecaca'}`,
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {conflictData.canApprove ? (
-                          <IconCheckCircle size={18} className="text-emerald-600" />
-                        ) : (
-                          <IconAlertCircle size={18} className="text-rose-600" />
-                        )}
-                        <span style={{ fontWeight: 700, fontSize: '0.8125rem', color: conflictData.canApprove ? '#15803d' : '#b91c1c' }}>
-                          {conflictData.canApprove
-                            ? 'Zero Blocking Conflicts: Request is approved for clearance'
-                            : `Approval Blocked: ${conflictData.conflicts?.length || 0} Conflict(s) Detected`}
-                        </span>
-                      </div>
-
-                      {conflictData.conflicts && conflictData.conflicts.length > 0 && (
-                        <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#991b1b' }}>
-                          {conflictData.conflicts.map((c, idx) => (
-                            <li key={idx}><strong>[{c.type}]</strong> {c.message}</li>
-                          ))}
-                        </ul>
-                      )}
-
-                      {conflictData.warnings && conflictData.warnings.length > 0 && (
-                        <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.25rem', fontSize: '0.75rem', color: '#b45309' }}>
-                          {conflictData.warnings.map((w, idx) => (
-                            <li key={idx}>{w}</li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ padding: '0.75rem', background: '#f8fafc', borderRadius: '0.5rem', fontSize: '0.8125rem', color: '#64748b' }}>
-                    Unable to evaluate preliminary conflicts. Backend validation will verify on action.
-                  </div>
-                )}
-              </div>
-
-              {/* Informational note for rejection */}
-              <div style={{ padding: '0.625rem 0.875rem', background: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#64748b' }}>
-                <span style={{ fontWeight: 600, color: '#334155' }}>Governance Policy:</span> Approvals automatically deduct effective working days and update ledger. Rejections preserve leave quota intact and record an immutable rejection event.
-              </div>
+              )}
             </div>
 
-            <div className="modal-actions" style={{ justifyContent: 'space-between' }}>
+            <div className="modal-actions">
               <button
                 type="button"
-                className="btn btn-secondary"
+                className="btn btn-secondary btn-sm"
                 onClick={closeReviewModal}
                 disabled={actionLoading}
               >
-                Close
+                Cancel
               </button>
-
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() => handleDecision('reject')}
-                  disabled={actionLoading}
-                >
-                  <IconX size={15} />
-                  <span>{actionLoading ? 'Processing...' : 'Reject Request'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-success"
-                  onClick={() => handleDecision('approve')}
-                  disabled={actionLoading || evaluatingConflicts || (conflictData && !conflictData.canApprove)}
-                  style={{
-                    backgroundColor: '#059669',
-                    borderColor: '#059669',
-                    color: '#ffffff',
-                    opacity: (conflictData && !conflictData.canApprove) ? 0.6 : 1,
-                  }}
-                >
-                  <IconCheck size={15} />
-                  <span>{actionLoading ? 'Processing...' : 'Approve Request'}</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                className={`btn btn-sm ${reviewModal.actionType === 'approve' ? 'btn-primary' : 'btn-danger'}`}
+                onClick={() => handleDecision(reviewModal.actionType)}
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Processing...' : `Confirm ${reviewModal.actionType === 'approve' ? 'Approval' : 'Rejection'}`}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* =========================================================================
-          3. CANCELLATION CONFIRMATION MODAL
-          ========================================================================= */}
-      {cancelModal.isOpen && cancelModal.leave && (
-        <ConfirmDialog
-          isOpen={cancelModal.isOpen}
-          title="Cancel Leave Request"
-          message={`Are you sure you want to CANCEL leave request #${cancelModal.leave.id} (${cancelModal.leave.startDate} to ${cancelModal.leave.endDate})? This will revoke the booking and release scheduled dates.`}
-          confirmText="Yes, Cancel Booking"
-          confirmVariant="warning"
-          loading={actionLoading}
-          onConfirm={handleConfirmCancel}
-          onCancel={closeCancelModal}
-        />
+      {/* CANCEL MODAL */}
+      {cancelModal.isOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-container max-w-md">
+            <div className="modal-header">
+              <div>
+                <h3 className="modal-title">Cancel Leave Request</h3>
+                <p className="modal-subtitle">Leave #{cancelModal.leave?.id}</p>
+              </div>
+              <button
+                type="button"
+                className="modal-close-btn"
+                onClick={closeCancelModal}
+                disabled={actionLoading}
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="modal-body text-xs text-secondary">
+              Are you sure you want to cancel this pending application? The scheduled days will be restored to your leave quota.
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={closeCancelModal}
+                disabled={actionLoading}
+              >
+                Keep Request
+              </button>
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                onClick={handleConfirmCancel}
+                disabled={actionLoading}
+              >
+                {actionLoading ? 'Cancelling...' : 'Confirm Cancellation'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
