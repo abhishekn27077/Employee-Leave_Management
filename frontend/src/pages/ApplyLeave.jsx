@@ -601,43 +601,105 @@ export default function ApplyLeave() {
                   )}
                 </div>
 
-                {/* Day Deductions Breakdown */}
-                <div className="p-3 rounded space-y-1.5" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                {/* Day Deductions & Quota Arithmetic Breakdown */}
+                <div className="p-3 rounded space-y-2" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
+                  <span className="text-[11px] font-bold text-secondary uppercase tracking-wider block border-b pb-1" style={{ borderColor: 'var(--color-border)' }}>
+                    Quota & Working-Day Impact
+                  </span>
                   <div className="flex justify-between items-center">
-                    <span className="text-secondary">Calendar Duration:</span>
-                    <span className="font-semibold text-primary font-mono">{evaluationResult.requestedDays} Days</span>
+                    <span className="text-secondary">Requested:</span>
+                    <span className="font-semibold text-primary font-mono">{evaluationResult.requestedDays} {evaluationResult.requestedDays === 1 ? 'day' : 'days'}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-secondary">Holiday Exclusions:</span>
-                    <span className="font-medium text-emerald-600 font-mono">-{evaluationResult.holidayCount || 0} Days</span>
+                    <span className="text-secondary">Holidays:</span>
+                    <span className="font-medium text-emerald-600 font-mono">
+                      {evaluationResult.holidayCount || 0} {evaluationResult.holidayCount === 1 ? 'day' : 'days'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold text-primary">Effective deduction:</span>
+                    <span className="font-bold text-primary font-mono">{effectiveDeduction} {effectiveDeduction === 1 ? 'day' : 'days'}</span>
                   </div>
                   <div className="flex justify-between items-center pt-1 border-t" style={{ borderColor: 'var(--color-border)' }}>
-                    <span className="font-semibold text-primary">Working Days Deducted:</span>
-                    <span className="font-bold text-primary font-mono">{effectiveDeduction} Days</span>
-                  </div>
-                </div>
-
-                {/* Balance Impact */}
-                <div className="p-3 rounded space-y-1.5" style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}>
-                  <div className="flex justify-between items-center">
-                    <span className="text-secondary">Current Quota Balance:</span>
-                    <span className="font-mono font-medium text-primary">{remainingBefore} Days</span>
+                    <span className="text-secondary">Available balance:</span>
+                    <span className="font-mono font-medium text-primary">{remainingBefore} days</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-secondary">Projected Balance After:</span>
+                    <span className="font-semibold text-primary">Remaining after request:</span>
                     <span
                       className="font-mono font-bold"
                       style={{ color: projectedRemainingAfter > 0 ? '#16a34a' : '#dc2626' }}
                     >
-                      {projectedRemainingAfter} Days
+                      {projectedRemainingAfter} days
                     </span>
                   </div>
                 </div>
 
-                {/* Conflicts / Warnings */}
+                {/* Conflict Engine Automated Validation Checklist */}
+                <div className="analysis-checklist">
+                  <span className="text-[11px] font-bold text-secondary uppercase tracking-wider block border-b pb-1 mb-1" style={{ borderColor: 'var(--color-border)' }}>
+                    Policy & Schedule Verification
+                  </span>
+                  
+                  {/* 1. Balance Check */}
+                  {(() => {
+                    const hasBalError = evaluationResult.conflicts?.some(
+                      (c) => c.type === 'INSUFFICIENT_BALANCE' || (c.message && c.message.toLowerCase().includes('balance'))
+                    ) || (remainingBefore < effectiveDeduction);
+                    return (
+                      <div className={`analysis-check-item ${hasBalError ? 'fail' : 'pass'}`}>
+                        {hasBalError ? <IconAlertCircle size={14} /> : <IconCheck size={14} />}
+                        <span>{hasBalError ? 'Insufficient leave balance' : 'Balance sufficient'}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 2. Overlap Check */}
+                  {(() => {
+                    const hasOverlap = evaluationResult.conflicts?.some(
+                      (c) => c.type === 'OVERLAPPING_REQUEST' || (c.message && c.message.toLowerCase().includes('overlap'))
+                    );
+                    return (
+                      <div className={`analysis-check-item ${hasOverlap ? 'fail' : 'pass'}`}>
+                        {hasOverlap ? <IconAlertCircle size={14} /> : <IconCheck size={14} />}
+                        <span>{hasOverlap ? 'Overlapping leave request detected' : 'No overlapping leave'}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 3. Policy Compliance Check */}
+                  {(() => {
+                    const hasPolicyError = evaluationResult.conflicts?.some(
+                      (c) => c.type === 'POLICY_VIOLATION' || 
+                             (c.message && (c.message.toLowerCase().includes('consecutive') || c.message.toLowerCase().includes('notice')))
+                    );
+                    return (
+                      <div className={`analysis-check-item ${hasPolicyError ? 'fail' : 'pass'}`}>
+                        {hasPolicyError ? <IconAlertCircle size={14} /> : <IconCheck size={14} />}
+                        <span>{hasPolicyError ? 'Exceeds policy consecutive-day rules' : 'Policy compliant'}</span>
+                      </div>
+                    );
+                  })()}
+
+                  {/* 4. Team Availability Check */}
+                  {(() => {
+                    const hasAvailWarn = evaluationResult.conflicts?.some(
+                      (c) => c.type === 'DEPARTMENT_THRESHOLD' || 
+                             (c.message && (c.message.toLowerCase().includes('threshold') || c.message.toLowerCase().includes('availability')))
+                    );
+                    return (
+                      <div className={`analysis-check-item ${hasAvailWarn ? 'warning' : 'pass'}`}>
+                        {hasAvailWarn ? <IconAlertCircle size={14} /> : <IconCheck size={14} />}
+                        <span>{hasAvailWarn ? 'Department availability threshold warning' : 'Team availability acceptable'}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Additional Detailed Messages if any */}
                 {evaluationResult.conflicts && evaluationResult.conflicts.length > 0 && (
                   <div className="p-2.5 rounded text-xs space-y-1" style={{ background: '#fff1f2', border: '1px solid #fecaca' }}>
-                    <span className="font-semibold text-rose-700 block">Identified Conflicts:</span>
+                    <span className="font-semibold text-rose-700 block">Conflict Explanations:</span>
                     <ul className="pl-4 space-y-1 list-disc text-rose-600 m-0">
                       {evaluationResult.conflicts.map((c, idx) => (
                         <li key={idx}>{c.message || c.type}</li>
@@ -746,7 +808,7 @@ export default function ApplyLeave() {
                 onClick={handleConfirmSubmit}
                 disabled={submitting}
               >
-                {submitting ? 'Submitting...' : 'Confirm & Submit'}
+                {submitting ? 'Submitting...' : 'Submit Leave Request'}
               </button>
             </div>
           </div>
