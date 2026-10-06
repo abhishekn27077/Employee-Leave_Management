@@ -1,494 +1,597 @@
 # Employee Leave Management System
 
-A full-stack web application designed for managing organizational workforce availability, leave policies, approval workflows, balance tracking, and conflict detection.
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-21-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java 21" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-4.1.1-6DB33F?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot 4.1.1" />
+  <img src="https://img.shields.io/badge/React-19.2.8-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/Vite-8.3.0-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite 8" />
+  <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL 8.0" />
+  <img src="https://img.shields.io/badge/Tests-147%20Passed-brightgreen?style=for-the-badge&logo=junit5&logoColor=white" alt="147 Tests Passed" />
+</p>
+
+An enterprise-grade workforce leave management platform engineered with **Spring Boot 4**, **Java 21**, **React 19**, and **MySQL 8.0**. Built with authoritative server-side conflict detection, multi-tier role authorization, real-time department availability tracking, and automated balance deductions.
 
 ---
 
-## 1. Project Overview
+## Project Preview
 
-Managing employee time off across departments often leads to scheduling conflicts, unmonitored policy breaches, and departmental understaffing. The **Employee Leave Management System** provides a centralized, automated platform that connects departmental rosters, holiday schedules, entitlement allowances, and leave approval workflows.
+![Executive Manager Dashboard](docs/screenshots/01-dashboard.png)
 
-By calculating workforce availability and evaluating scheduling conflicts before leave approval, the system ensures operational continuity while maintaining transparent leave records.
-
-### Scope Distinction
-
-- **Core Functional Scope**: Department management, employee records, leave type definitions, leave policies, leave requests, leave balances, manager approvals/rejections, team availability forecasting, holiday calendars, balance adjustments, audit trails, and multi-rule conflict detection.
-- **Implemented Product Enhancements**: Role-based access control (`EMPLOYEE`, `MANAGER`, `HR_ADMIN`), stateless JWT authentication, BCrypt password hashing, protected frontend routes, dedicated workspaces per role, and responsive UI design.
+> **Enterprise Manager Dashboard**: Real-time KPI summaries, dynamic leave utilization metrics, team availability calendars, and instant pending approval actions.
 
 ---
 
-## 2. Authentication & Authorization
+## Why This Project?
 
-Authentication is implemented as a stateless, token-based security layer securing all backend APIs and frontend routes.
+Traditional human resource operations frequently suffer from:
+- **Disjointed spreadsheets & email threads** that lead to untracked absences and balance discrepancies.
+- **Unchecked scheduling conflicts** where multiple key employees in the same department take concurrent leaves, degrading operational capacity.
+- **Lack of authoritative policy enforcement**, allowing employees to submit invalid date ranges, exceed consecutive day caps, or overdraw remaining leave balances.
+- **Absent audit trails**, leaving HR administrators without historical visibility into balance modifications or managerial approvals.
 
-### Authentication Mechanism
-- **Login (`POST /api/auth/login`)**: Accepts `usernameOrEmail` and `password`. Returns a signed JWT token along with user profile metadata.
-- **Password Security**: Passwords are encrypted using Spring Security's `BCryptPasswordEncoder` with salt. No plaintext passwords or password hashes are ever exposed through API responses.
-- **Current User Identity (`GET /api/auth/me`)**: Validates the Bearer token in the `Authorization` header and returns the authenticated user's ID, username, role, employee code, name, designation, and department.
-- **Logout (`POST /api/auth/logout`)**: Stateless endpoint acknowledging session termination. The client discards the JWT token and clears cached user state from browser storage. (Stateless JWT authentication — no server-side token revocation or session store).
-- **Protected Routes**: Frontend navigation is guarded by `ProtectedRoute.jsx`, redirecting unauthenticated visitors to `/login` and restricting pages based on the user's role.
-
-### Role Model
-
-The system enforces three distinct authorization roles:
-
-1. **`EMPLOYEE`**:
-   - Access to own profile and employment information.
-   - Submits leave requests for self (cannot apply for other employees).
-   - Views own leave request history and cancellation of own pending leaves.
-   - Views own leave balances across leave types.
-   - Views holiday calendar and team availability.
-
-2. **`MANAGER`**:
-   - Inherits all employee capabilities (can apply for and manage own leaves).
-   - Views direct team members within their assigned department.
-   - Reviews and approves or rejects pending leave requests for department members.
-   - Accesses department-specific team availability and staffing metrics.
-   - Restricted from organization-wide administrative settings.
-
-3. **`HR_ADMIN`**:
-   - Full organization-wide administration across all modules.
-   - Manages employees, departments, leave types, and leave policies.
-   - Manages holiday calendars and performs balance adjustments.
-   - Views complete audit logs and company-wide workforce overview dashboard.
-
-> **Important**: *Department* is an organizational attribute assigned to an employee and manager, not a security role. Managerial approval permissions are bound by the manager's department affiliation.
+The **Employee Leave Management System** resolves these operational challenges by combining a deterministic server-side **Conflict Engine** with self-service employee portals, managerial approval workflows, and centralized HR governance.
 
 ---
 
-## 3. Key Modules
+## Key Features
 
-- **Authentication & Identity**: User authentication, JWT issuance, profile lookup, and role enforcement.
-- **Employee Management**: Employee directory tracking ID, name, email, phone, designation, joining date, and department association.
-- **Department Management**: Organizational structure with headcounts and minimum availability thresholds.
-- **Leave Types & Policies**: Leave classifications (Annual, Sick, Casual, Maternity, Paternity, Unpaid) with configurable default allowances, consecutive day limits, and approval requirements.
-- **Leave Balances**: Tracks individual allowances (`remainingBalance = entitlement - usedDays`).
-- **Leave Requests & Workflow**: Application submission, date range calculation excluding holidays and weekends, and state progression (`PENDING` &rarr; `APPROVED` / `REJECTED` / `CANCELLED`).
-- **Manager Approval Workspace**: Department-scoped approval queue with real-time conflict warnings.
-- **Team Availability**: Real-time capacity calculations comparing present staff against minimum departmental thresholds.
-- **Holiday Calendar**: Centralized calendar for company and public holidays that automatically reduces requested leave day counts.
-- **Leave Adjustments**: Administrative adjustments to credit or debit days with required reference notes and audit logging.
-- **Audit History**: Immutable audit log recording actors, actions, target entities, previous values, new values, and timestamps.
-- **Workforce Dashboard**: Role-tailored dashboards for Employees, Managers, and HR Administrators.
-- **Conflict Detection Engine**: Automated validation evaluating leave requests against 5 operational constraints.
+### 👤 Employee Self-Service
+- **Dynamic Balance Insights**: Live tracking of Annual, Sick, Casual, Maternity, and Unpaid leave entitlements, consumed days, and remaining balances.
+- **Smart Leave Application**: Integrated pre-submission review that validates dates against company holidays and weekends.
+- **Request Ledger**: Comprehensive leave request history with real-time status tracking (`Pending`, `Approved`, `Rejected`, `Cancelled`).
+- **Team Availability Visibility**: Department calendar showing approved leaves to facilitate thoughtful request planning.
 
----
+### 👥 Managerial Oversight
+- **Two-Tier Approval Workflow**: Review, approve, or reject department requests with mandatory rejection reasoning.
+- **Department Capacity Guard**: Real-time staffing thresholds that warn managers if department coverage falls below acceptable limits.
+- **Instant Balance Impact**: Authoritative atomic deductions executed immediately upon request approval.
 
-## 4. Technology Stack
-
-### Backend
-| Technology | Version | Purpose |
-| :--- | :--- | :--- |
-| **Java** | 21 | Backend runtime environment |
-| **Spring Boot** | 4.1.1 | Application framework and dependency injection |
-| **Spring Data JPA** | Managed | Data access abstraction and repository layer |
-| **Hibernate / JPA** | 7.4.5.Final | Object-Relational Mapping (ORM) and schema management |
-| **Spring Security Crypto** | Managed | BCrypt password hashing |
-| **Java Cryptography (`javax.crypto.Mac`)** | Standard (Java 21) | HMAC-SHA256 stateless JWT generation and verification with Jackson |
-| **Jakarta Validation** | Managed | DTO bean validation constraints |
-| **MySQL** | 8.0+ | Relational database storage (Connector/J 8.0.33) |
-| **Apache Tomcat** | 11.0.24 | Embedded servlet container |
-
-### Frontend
-| Technology | Version | Purpose |
-| :--- | :--- | :--- |
-| **React** | 19.2.8 | UI component library |
-| **Vite** | 8.3.0 | Frontend build tool and development server |
-| **React Router DOM** | 7.18.4 | Declarative client-side routing and route guards |
-| **Axios** | 1.20.0 | HTTP client for REST API communication |
-| **Vanilla CSS Tokens** | Custom | Responsive design system using CSS custom properties |
-| **Oxlint** | 1.81.0 | Frontend JavaScript/JSX linter |
-
-### Testing & Tools
-- **JUnit 5 / Mockito**: Backend unit and service test suites (146 automated tests).
-- **Maven**: Build management and dependency resolution (`mvnw.cmd` wrapper included).
-- **Node.js & npm**: Node 18+ and npm 9+ frontend runtime.
+### 🏢 HR Administration & Governance
+- **Workforce Directory**: Centralized management of employee profiles, organizational designations, and hierarchical manager assignments.
+- **Department Architecture**: Department creation, management, and staffing distribution tracking.
+- **Leave Types & Policies**: Granular configuration of annual entitlements, maximum consecutive day limits, advance notice requirements, and carry-forward rules.
+- **Manual Balance Adjustments**: Administrative credit/debit adjustments backed by mandatory reason tracking.
+- **Immutable Audit Trail**: Append-only system log capturing actions across users, leaves, policies, and balance modifications.
 
 ---
 
-## 5. System Architecture
+## Application Flow
 
-The application is structured as a single-repository client-server application:
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Employee as Employee (Requester)
+    actor Manager as Manager / Approver
+    participant Portal as React Client
+    participant Conflict as LeaveConflictService
+    participant LeaveSvc as LeaveService
+    participant BalanceSvc as LeaveBalanceService
+    participant Audit as AuditHistoryService
+    participant DB as MySQL Database
 
-```
-React Frontend (Vite SPA)
-       │
-       ▼ (HTTP REST + JSON + JWT Bearer Header)
-Spring Boot REST Controllers
-       │
-       ▼ (Security Filter & Jakarta Validation)
-Service Layer (@Transactional, Conflict Engine, Business Rules)
-       │
-       ▼ (Spring Data JPA Repositories)
-Data Layer (Hibernate ORM)
-       │
-       ▼ (ACID Transactions)
-MySQL Database (InnoDB)
+    Employee->>Portal: Submit Leave Application (dates, leaveTypeId, reason)
+    Portal->>LeaveSvc: POST /api/leaves
+    LeaveSvc->>Conflict: evaluateConflicts(employeeId, startDate, endDate, leaveTypeId)
+    
+    rect rgb(240, 248, 255)
+        note over Conflict: Validation Gates<br/>1. Check sufficient remaining balance<br/>2. Detect overlapping leaves<br/>3. Exclude weekends & company holidays<br/>4. Validate policy max consecutive days<br/>5. Check department availability threshold
+    end
+
+    alt Conflicts or Insufficient Balance Found
+        Conflict-->>LeaveSvc: Throw Validation / Business Error
+        LeaveSvc-->>Portal: 400 Bad Request (Error description)
+        Portal-->>Employee: Display error alert (application blocked)
+    else Validation Passed
+        Conflict-->>LeaveSvc: Conflict free & net working days calculated
+        LeaveSvc->>DB: Save Leave (status: PENDING)
+        LeaveSvc->>Audit: Log creation event ("LEAVE_APPLIED")
+        LeaveSvc-->>Portal: 201 Created (Leave details)
+        Portal-->>Employee: Show success toast, status: PENDING
+    end
+
+    Manager->>Portal: Review Pending Leave Requests
+    Portal->>LeaveSvc: GET /api/leaves/pending
+    LeaveSvc-->>Portal: List of pending department leaves
+
+    alt Manager Approves Request
+        Manager->>Portal: Click Approve
+        Portal->>LeaveSvc: PUT /api/leaves/{id}/approve
+        LeaveSvc->>BalanceSvc: Deduct used days from leave balance
+        BalanceSvc->>DB: Update LeaveBalance (usedDays += N, remainingBalance -= N)
+        LeaveSvc->>DB: Update Leave (status: APPROVED, reviewedAt, reviewedBy)
+        LeaveSvc->>Audit: Log approval event ("LEAVE_APPROVED")
+        LeaveSvc-->>Portal: 200 OK (Updated status: APPROVED)
+        Portal-->>Manager: Real-time status update to Approved
+    else Manager Rejects Request
+        Manager->>Portal: Click Reject (provide rejection reason)
+        Portal->>LeaveSvc: PUT /api/leaves/{id}/reject
+        LeaveSvc->>DB: Update Leave (status: REJECTED, rejectionReason)
+        note over BalanceSvc: No balance deduction occurs
+        LeaveSvc->>Audit: Log rejection event ("LEAVE_REJECTED")
+        LeaveSvc-->>Portal: 200 OK (Updated status: REJECTED)
+        Portal-->>Manager: Status updated to Rejected
+    end
 ```
 
-### Layer Responsibilities
-- **Frontend SPA**: React components with `AuthContext` state management, Axios interceptors injecting JWT tokens, and CSS variables for styling.
-- **REST Controllers**: Endpoints receiving DTOs, validating request constraints, delegating to services, and returning standard HTTP status codes.
-- **Security Filter & Services**: Intercepts requests, validates JWT claims, and enforces role/ownership restrictions via `SecurityService`.
-- **Service Layer**: Manages business logic, balance arithmetic, audit record creation, and transactional integrity (`@Transactional`).
-- **Data Repositories**: Spring Data JPA interfaces executing queries against MySQL with entity relationships.
+---
+
+## Application Screenshots
+
+### 1. Dashboard Overview
+![Executive Dashboard](docs/screenshots/01-dashboard.png)
+*Role-aware metrics, quick links, pending approval alerts, and department attendance statistics.*
+
+### 2. Employee Directory
+![Employee Directory](docs/screenshots/02-employees.png)
+*HR directory featuring employee codes, designations, department mapping, manager hierarchies, and active account status.*
+
+### 3. Department Management
+![Department Management](docs/screenshots/03-departments.png)
+*Organizational unit configuration, operational headcount, and department status tracking.*
+
+### 4. Leave Application & Conflict Engine
+![Leave Application](docs/screenshots/04-leave-application.png)
+*Self-service leave booking with real-time balance previews, date calculation, and conflict policy checks.*
+
+### 5. Leave Tracking & History
+![Leave History](docs/screenshots/05-leave-history.png)
+*Comprehensive employee request ledger with status chips, working days count, and self-service cancellation.*
+
+### 6. Manager Approval Workflow
+![Manager Approvals](docs/screenshots/06-leave-approval.png)
+*Managerial review table for pending team leaves with direct Approve and Reject decision actions.*
+
+### 7. Team Availability & Workforce Calendar
+![Team Availability](docs/screenshots/07-availability.png)
+*Department attendance matrix detailing scheduled absences to prevent operational understaffing.*
 
 ---
 
-## 6. Project Structure
+## System Architecture
 
+```mermaid
+graph TD
+    subgraph Client["Frontend Client (React 19 + Vite)"]
+        UI["Modern UI / Enterprise Portal (HTML5, CSS3, JS)"]
+        Router["React Router v7 (Role-Based Protected Routes)"]
+        AxiosClient["Axios HTTP Client (Bearer JWT Token)"]
+        UI --> Router
+        Router --> AxiosClient
+    end
+
+    subgraph Security["Security & Interceptor Layer"]
+        CORS["CORS Filter (Scoped Local Origins)"]
+        SecInterceptor["SecurityInterceptor (Stateless JWT RBAC)"]
+        TokenProvider["JwtTokenProvider (HMAC-SHA256, 24h)"]
+        CORS --> SecInterceptor
+        SecInterceptor --> TokenProvider
+    end
+
+    subgraph Controllers["Spring Boot REST API Controllers (:8080)"]
+        AuthCtrl["AuthController (/api/auth)"]
+        EmpCtrl["EmployeeController (/api/employees)"]
+        DeptCtrl["DepartmentController (/api/departments)"]
+        LeaveCtrl["LeaveController (/api/leaves)"]
+        BalCtrl["LeaveBalanceController (/api/leave-balances)"]
+        AvailCtrl["TeamAvailabilityController (/api/availability)"]
+        PolicyCtrl["LeavePolicyController (/api/leave-policies)"]
+        AdjCtrl["LeaveAdjustmentController (/api/leave-adjustments)"]
+        AuditCtrl["AuditHistoryController (/api/audit-history)"]
+    end
+
+    subgraph Services["Core Business Logic & Conflict Engine"]
+        AuthSvc["AuthService (BCrypt Hashing)"]
+        LeaveSvc["LeaveService (State & Deductions)"]
+        ConflictEngine["LeaveConflictService (Rule & Capacity Engine)"]
+        BalanceSvc["LeaveBalanceService (Accrual & Balance Match)"]
+        AvailSvc["TeamAvailabilityService (Dept Roster Tracking)"]
+        AuditSvc["AuditHistoryService (Immutable Event Logging)"]
+    end
+
+    subgraph Persistence["Persistence & Data Access"]
+        JPA["Spring Data JPA Repositories"]
+        Hibernate["Hibernate 6 ORM"]
+        Hikari["HikariCP Connection Pool"]
+        JPA --> Hibernate
+        Hibernate --> Hikari
+    end
+
+    subgraph Storage["Database Layer"]
+        MySQL[("MySQL 8.0 Engine\n(employee_leave_db)")]
+        Hikari --> MySQL
+    end
+
+    AxiosClient -->|HTTP REST| CORS
+    SecInterceptor --> Controllers
+    Controllers --> Services
+    LeaveSvc --> ConflictEngine
+    LeaveSvc --> BalanceSvc
+    LeaveSvc --> AuditSvc
+    Services --> JPA
 ```
+
+### Architectural Principles
+- **Authoritative Backend Validation**: Validation logic (insufficient balance, overlap detection, consecutive days limit, and holiday deduction) is evaluated server-side in `LeaveConflictService`.
+- **Role-Based Access Control (RBAC)**: Custom `SecurityInterceptor` validates signed HMAC-SHA256 JWT tokens and validates required role privileges (`EMPLOYEE`, `MANAGER`, `HR_ADMIN`) on every protected route.
+- **Transactional Integrity**: All leave status updates, balance deductions, and audit logging execute within atomic `@Transactional` database transactions.
+
+---
+
+## Database Design
+
+```mermaid
+erDiagram
+    DEPARTMENTS ||--o{ EMPLOYEES : "employs"
+    EMPLOYEES ||--o{ EMPLOYEES : "reports to (manager)"
+    EMPLOYEES ||--|| USER_ACCOUNTS : "authenticates as"
+    EMPLOYEES ||--o{ LEAVE_BALANCES : "has"
+    EMPLOYEES ||--o{ LEAVES : "requests"
+    EMPLOYEES ||--o{ LEAVE_ADJUSTMENTS : "receives"
+    
+    LEAVE_TYPES ||--|| LEAVE_POLICIES : "governed by"
+    LEAVE_TYPES ||--o{ LEAVE_BALANCES : "allocated in"
+    LEAVE_TYPES ||--o{ LEAVES : "categorized by"
+    LEAVE_TYPES ||--o{ LEAVE_ADJUSTMENTS : "adjusted in"
+
+    DEPARTMENTS {
+        bigint id PK
+        varchar name
+        varchar description
+        boolean active
+    }
+
+    EMPLOYEES {
+        bigint id PK
+        varchar employee_code UK
+        varchar first_name
+        varchar last_name
+        varchar email UK
+        varchar phone
+        varchar designation
+        date joining_date
+        boolean active
+        bigint department_id FK
+        bigint manager_id FK
+    }
+
+    USER_ACCOUNTS {
+        bigint id PK
+        varchar username UK
+        varchar password_hash
+        varchar role "EMPLOYEE | MANAGER | HR_ADMIN"
+        boolean active
+        bigint employee_id FK,UK
+    }
+
+    LEAVE_TYPES {
+        bigint id PK
+        varchar code UK
+        varchar name
+        varchar description
+        int default_days_per_year
+        boolean requires_approval
+        boolean paid
+    }
+
+    LEAVE_POLICIES {
+        bigint id PK
+        bigint leave_type_id FK,UK
+        int max_consecutive_days
+        int min_notice_days
+        boolean carry_forward_allowed
+        int max_carry_forward_days
+        boolean active
+    }
+
+    LEAVE_BALANCES {
+        bigint id PK
+        bigint employee_id FK
+        bigint leave_type_id FK
+        int year
+        decimal entitlement
+        decimal used_days
+        decimal remaining_balance
+    }
+
+    LEAVES {
+        bigint id PK
+        bigint employee_id FK
+        bigint leave_type_id FK
+        date start_date
+        date end_date
+        decimal days_count
+        varchar status "PENDING | APPROVED | REJECTED | CANCELLED"
+        varchar reason
+        varchar rejection_reason
+        datetime applied_at
+        datetime reviewed_at
+        bigint reviewed_by FK
+    }
+
+    LEAVE_ADJUSTMENTS {
+        bigint id PK
+        bigint employee_id FK
+        bigint leave_type_id FK
+        varchar adjustment_type "CREDIT | DEBIT"
+        decimal days
+        varchar reason
+        varchar adjusted_by
+        datetime adjusted_at
+    }
+
+    HOLIDAYS {
+        bigint id PK
+        varchar name
+        date date UK
+        varchar description
+        boolean recurring
+    }
+
+    AUDIT_HISTORY {
+        bigint id PK
+        varchar entity_name
+        bigint entity_id
+        varchar action
+        varchar performed_by
+        datetime timestamp
+        varchar details
+    }
+```
+
+---
+
+## Technology Stack
+
+| Layer | Technology | Version | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Backend Runtime** | Java JDK | `21` | Modern LTS Java runtime environment |
+| **Backend Framework** | Spring Boot | `4.1.1` | Core REST API, IoC container, configuration |
+| **Persistence** | Spring Data JPA / Hibernate | `6.x` | ORM, transactional data management, repository queries |
+| **Security & Crypto** | Spring Security Crypto | `4.1.1` | BCrypt password hashing & salt verification |
+| **Authentication** | Custom JWT Token Provider | `24h Exp` | Stateless HMAC-SHA256 authentication |
+| **Database** | MySQL | `8.0+` | Relational persistence engine |
+| **Frontend Framework** | React | `19.2.8` | Component-based reactive UI |
+| **Frontend Routing** | React Router DOM | `7.18.4` | Role-based declarative client-side routing |
+| **HTTP Client** | Axios | `1.20.0` | Promise-based HTTP client with Bearer interceptors |
+| **Frontend Tooling** | Vite | `8.3.0` | Ultra-fast client build tool & development server |
+| **Linting** | Oxlint | `1.81.0` | High-performance JavaScript/React linter |
+
+---
+
+## Project Structure
+
+```text
 employee-leave-management/
-├── pom.xml                               # Maven project definition and dependencies
-├── mvnw / mvnw.cmd                       # Maven wrapper scripts
-├── application-example.properties        # Example environment configuration template
-├── src/
+│
+├── frontend/                              # React 19 Client Application
+│   ├── src/
+│   │   ├── components/                    # Reusable Design System Components
+│   │   │   ├── Avatar.jsx                 # User profile avatar chip
+│   │   │   ├── FormField.jsx              # Accessible form input wrapper
+│   │   │   ├── Header.jsx                 # Top bar with user role & identity
+│   │   │   ├── Icons.jsx                  # Feather SVG icon components
+│   │   │   ├── ProtectedRoute.jsx         # RBAC route authorization guard
+│   │   │   ├── SearchFilterBar.jsx        # Table search & status filter bar
+│   │   │   ├── Sidebar.jsx                # Responsive role-aware navigation
+│   │   │   ├── SkeletonLoader.jsx         # Card & table loading placeholders
+│   │   │   ├── StatCard.jsx               # Enterprise KPI metrics card
+│   │   │   └── StatusBadge.jsx            # Standardized leave status badge
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx            # Authentication state & session manager
+│   │   ├── pages/                         # Core Application Views
+│   │   │   ├── ApplyLeave.jsx             # Leave application & conflict inspector
+│   │   │   ├── AuditHistory.jsx           # Immutable audit log viewer
+│   │   │   ├── Departments.jsx            # Department management view
+│   │   │   ├── EmployeeDashboard.jsx      # Employee self-service dashboard
+│   │   │   ├── Employees.jsx              # Employee directory & profiles
+│   │   │   ├── Holidays.jsx               # Holiday calendar view
+│   │   │   ├── HRAdminDashboard.jsx       # HR administrative dashboard
+│   │   │   ├── LeaveAdjustments.jsx       # Manual credit/debit adjustments
+│   │   │   ├── LeaveBalances.jsx          # Leave balance ledger
+│   │   │   ├── LeavePolicies.jsx          # Policy & entitlement rules view
+│   │   │   ├── LeaveTypes.jsx             # Leave category configuration
+│   │   │   ├── Leaves.jsx                 # Leave requests tracking & approvals
+│   │   │   ├── Login.jsx                  # Enterprise login portal
+│   │   │   ├── ManagerDashboard.jsx       # Manager oversight dashboard
+│   │   │   ├── Profile.jsx                # User account profile
+│   │   │   └── TeamAvailability.jsx       # Department availability calendar
+│   │   ├── services/
+│   │   │   └── api.js                     # Centralized Axios API client
+│   │   ├── App.jsx                        # Root router configuration
+│   │   ├── index.css                      # Global enterprise CSS design tokens
+│   │   └── main.jsx                       # React DOM entry point
+│   ├── package.json                       # Frontend dependencies & scripts
+│   └── vite.config.js                     # Vite build configuration
+│
+├── src/                                   # Spring Boot 4 Backend Application
 │   ├── main/
 │   │   ├── java/com/example/employeeleave/
-│   │   │   ├── EmployeeLeaveManagementApplication.java
-│   │   │   ├── config/                   # WebSecurityConfig, AuthDataInitializer
-│   │   │   ├── controller/               # 12 REST API Controllers
-│   │   │   ├── dto/                      # Request/Response DTOs and Enums
-│   │   │   ├── entity/                   # 9 Core Entities + UserAccount
-│   │   │   ├── exception/                # GlobalExceptionHandler and Custom Exceptions
-│   │   │   ├── repository/               # 10 Spring Data JPA Repositories
-│   │   │   ├── security/                 # JwtTokenProvider, JwtAuthenticationFilter, SecurityService
-│   │   │   └── service/                  # Business Services and LeaveConflictService
+│   │   │   ├── config/                    # Security & Web MVC configurations
+│   │   │   ├── controller/                # REST Controllers
+│   │   │   ├── dto/                       # Data Transfer Objects & Requests
+│   │   │   ├── entity/                    # JPA Domain Entities
+│   │   │   ├── repository/                # Spring Data JPA Repositories
+│   │   │   ├── security/                  # JWT Provider & Security Interceptor
+│   │   │   └── service/                   # Core business logic & Conflict engine
 │   │   └── resources/
-│   │       ├── application.properties    # Application configuration
-│   │       └── application-example.properties
-│   └── test/                             # 146 Automated unit and integration tests
-└── frontend/
-    ├── package.json                      # Frontend dependencies and scripts
-    ├── vite.config.js                    # Vite configuration
-    ├── index.html                        # HTML entry point
-    └── src/
-        ├── App.jsx                       # App routing, layout, and ProtectedRoute guards
-        ├── index.css                     # Custom design tokens and styles
-        ├── components/                   # Sidebar, Header, ProtectedRoute, AlertMessage, ConfirmDialog
-        ├── context/                      # AuthContext for login/session state
-        ├── pages/                        # Role dashboards, Leave workflows, Profile, Admin modules
-        └── services/api.js               # Centralized Axios instance with auth interceptor
+│   │       ├── application.properties     # Production-safe configuration
+│   │       └── application-example.properties # Template for local credentials
+│   └── test/                              # Automated Unit & Integration Tests
+│       └── java/com/example/employeeleave/
+│           ├── security/                  # RBAC Authorization integration tests
+│           └── service/                   # Service & Conflict engine tests
+│
+├── docs/                                  # Project Documentation & Assets
+│   ├── diagrams/                          # Mermaid Architecture & Flow Source Files
+│   ├── screenshots/                       # High-Resolution UI Screenshots
+│   └── SCREENSHOT-PLAN.md                 # UI verification & screenshot strategy
+│
+├── pom.xml                                # Maven POM configuration
+├── start-dev.ps1                          # Turnkey local development launcher
+└── README.md                              # Main documentation file
 ```
 
 ---
 
-## 7. Database Entities & Relationships
+## API Overview
 
-The database schema consists of 10 JPA entities:
+All API endpoints are hosted under `/api/**`. Unauthenticated requests receive HTTP `401 Unauthorized`; requests lacking sufficient role privileges receive HTTP `403 Forbidden`.
 
-| Entity | Fields | Description |
-| :--- | :--- | :--- |
-| **`Department`** | `id`, `name` | Organizational units referenced by employees and policies. |
-| **`Employee`** | `id`, `employeeId`, `name`, `email`, `phone`, `designation`, `joiningDate`, `department` | Individual employee profiles. |
-| **`UserAccount`** | `id`, `username`, `email`, `passwordHash`, `role`, `active`, `employee`, `createdAt`, `lastLoginAt` | Authentication credentials linked to an employee. |
-| **`LeaveType`** | `id`, `name`, `description`, `defaultDays` | Categories of leave (Annual, Sick, Casual, etc.). |
-| **`LeavePolicy`** | `id`, `leaveType`, `department`, `entitlement`, `maxConsecutiveDays`, `requiresApproval`, `minAvailabilityPercentage` | Rules governing allowances and constraints. |
-| **`LeaveBalance`** | `id`, `employee`, `leaveType`, `entitlement`, `usedDays`, `remainingBalance` | Employee leave tracking. |
-| **`Leave`** | `id`, `employee`, `leaveType`, `startDate`, `endDate`, `status`, `reason`, `appliedAt` | Leave requests (`PENDING`, `APPROVED`, `REJECTED`, `CANCELLED`). |
-| **`Holiday`** | `id`, `holidayDate`, `name`, `description` | Official non-working calendar dates. |
-| **`LeaveAdjustment`** | `id`, `employee`, `leaveType`, `adjustmentDays`, `reason`, `reference`, `createdAt` | Manual balance modifications by HR. |
-| **`AuditHistory`** | `id`, `actor`, `action`, `entityType`, `entityId`, `oldValue`, `newValue`, `description`, `timestamp` | Append-only audit events. |
-
-### Relationships
-- `Employee` &rarr; `Department`: `@ManyToOne` (Employee belongs to one department).
-- `UserAccount` &rarr; `Employee`: `@OneToOne` (User account links to one employee).
-- `Leave` &rarr; `Employee` & `LeaveType`: `@ManyToOne` (Request submitted by employee for a leave type).
-- `LeaveBalance` &rarr; `Employee` & `LeaveType`: `@ManyToOne` with unique composite constraint.
-- `LeavePolicy` &rarr; `LeaveType` (`@ManyToOne`) and optional `Department` (`@ManyToOne`).
-- `LeaveAdjustment` &rarr; `Employee` & `LeaveType`: `@ManyToOne`.
+| Method | Endpoint | Allowed Roles | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/login` | Public | Authenticates user; returns signed JWT token and user info |
+| `GET` | `/api/auth/me` | Authenticated | Retrieves profile of currently authenticated user |
+| `POST` | `/api/auth/logout` | Authenticated | Terminates active user session |
+| `GET` | `/api/leaves` | Authenticated | Retrieves leave requests (scoped to employee or department) |
+| `POST` | `/api/leaves` | `EMPLOYEE`, `MANAGER`, `HR_ADMIN` | Submits new leave with Conflict Engine evaluation |
+| `PUT` | `/api/leaves/{id}/approve` | `MANAGER`, `HR_ADMIN` | Approves request & executes atomic balance deduction |
+| `PUT` | `/api/leaves/{id}/reject` | `MANAGER`, `HR_ADMIN` | Rejects request with required rejection reasoning |
+| `PUT` | `/api/leaves/{id}/cancel` | `EMPLOYEE`, `MANAGER`, `HR_ADMIN` | Cancels pending leave request |
+| `GET` | `/api/leaves/pending` | `MANAGER`, `HR_ADMIN` | Retrieves pending requests for manager's department |
+| `GET` | `/api/leave-balances` | Authenticated | Retrieves leave balances (scoped by role) |
+| `GET` | `/api/leave-balances/employee/{id}` | `MANAGER`, `HR_ADMIN` | Retrieves specific employee leave balances |
+| `POST` | `/api/leave-adjustments` | `HR_ADMIN` | Performs manual credit/debit balance adjustment |
+| `GET` | `/api/availability` | Authenticated | Retrieves department workforce availability for date range |
+| `GET` | `/api/employees` | `MANAGER`, `HR_ADMIN` | Retrieves workforce employee directory |
+| `POST` | `/api/employees` | `HR_ADMIN` | Creates new employee profile |
+| `GET` | `/api/departments` | `HR_ADMIN` | Retrieves list of all organizational departments |
+| `POST` | `/api/departments` | `HR_ADMIN` | Creates new organizational department |
+| `GET` | `/api/leave-types` | Authenticated | Retrieves available leave categories and day quotas |
+| `GET` | `/api/leave-policies` | `HR_ADMIN` | Retrieves policy rules (consecutive limits, carry-forward) |
+| `GET` | `/api/holidays` | Authenticated | Retrieves official company holiday calendar |
+| `GET` | `/api/audit-history` | `HR_ADMIN` | Retrieves system audit logs |
+| `GET` | `/api/dashboard/stats` | Authenticated | Computes role-specific dashboard metrics |
 
 ---
 
-## 8. Leave Workflow
+## Testing & Verification
 
-```
-[ Employee Logs In ]
-         │
-         ▼
-[ Apply Leave Form (/apply-leave) ]
-- Select Leave Type, Start Date, End Date, Reason
-         │
-         ▼
-[ Real-Time Conflict Check (POST /api/leaves/evaluate-conflicts) ]
-- Checks balance, public holidays, overlapping requests, and department availability
-         │
-         ▼
-[ Submit Request (POST /api/leaves) ]
-- Status: PENDING
-- Audit log entry created
-         │
-         ▼
-[ Manager Review (Approval Queue) ]
-- Manager reviews request details, conflict warnings, and team capacity
-         │
-    ┌────┴──────────────────────────┐
-    ▼                               ▼
-[ Approve (PUT .../approve) ]     [ Reject (PUT .../reject) ]
-- Status: APPROVED                - Status: REJECTED
-- remainingBalance deducted       - Balance preserved
-- usedDays incremented            - Audit log with rejection reason
-- Audit log created               - Employee notified in UI
+The system includes a comprehensive suite of unit tests, integration tests, and authorization security tests:
+
+```text
+========================================================================
+TEST EXECUTION SUMMARY
+========================================================================
+Backend Tests Run:     147
+Failures:              0
+Errors:                0
+Skipped:               0
+Build Status:          BUILD SUCCESS (Total time: 19.855 s)
+
+Frontend Linter:       oxlint v1.81.0 (37 files analyzed, 0 errors)
+Frontend Production:   vite v8.3.1 build (built client in 361 ms)
+========================================================================
 ```
 
----
-
-## 9. Conflict Detection Engine
-
-The system evaluates 5 distinct conflict conditions during pre-submission checks and prior to approval:
-
-1. **`INSUFFICIENT_BALANCE`** (*Blocking*): The requested working days exceed the employee's available remaining balance.
-2. **`POLICY_VIOLATION`** (*Blocking*): Start date is after end date, duration exceeds the policy's `maxConsecutiveDays`, or date is in the past where restricted.
-3. **`OVERLAPPING_LEAVE`** (*Blocking*): The employee already has an existing `PENDING` or `APPROVED` leave request overlapping the requested date range.
-4. **`HOLIDAY_CONFLICT`** (*Informational / Warning*): Identifies public holidays falling within the selected dates; official holidays are excluded from consumed working days.
-5. **`TEAM_AVAILABILITY_CONFLICT`** (*Warning / Blocking*): Approving the leave causes department staffing to drop below the configured `minAvailabilityPercentage`.
+### Verified Test Categories
+- **RBAC Security Tests** (`AuthorizationTest`): Confirms HTTP `401` on unauthenticated calls, HTTP `403` when employees attempt administrative endpoints, and strict validation preventing managers from approving their own leaves.
+- **Conflict Engine Tests** (`LeaveConflictServiceTest`): Confirms rejection of overlapping leaves, enforcement of consecutive-day policy limits, weekend and holiday day exclusions, and insufficient balance prevention.
+- **Balance Arithmetic & Deductions** (`LeaveBalanceServiceTest`): Verifies single deduction upon approval (+used, -remaining) and zero deductions on rejection.
+- **Workflow End-to-End Tests**: Live simulated workflows verifying Employee submission, Manager approval/rejection, and HR administrative configuration.
 
 ---
 
-## 10. REST API Reference
-
-### Authentication Endpoints
-| Method | Endpoint | Access Level | Description |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/login` | Public | Authenticates user; returns JWT token and user details. |
-| `GET` | `/api/auth/me` | Authenticated | Returns current authenticated user metadata. |
-| `POST` | `/api/auth/logout` | Public / Authenticated | Acknowledges logout; client clears stored JWT and cached session. |
-
-### Employee Endpoints
-| Method | Endpoint | Access Level | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/employees` | Authenticated | Lists employees (HR: all; Manager: department; Employee: self). |
-| `GET` | `/api/employees/{id}` | Authenticated | Retrieves employee by ID (scoped by role and department). |
-| `POST` | `/api/employees` | HR_ADMIN | Creates a new employee record. |
-| `PUT` | `/api/employees/{id}` | HR_ADMIN | Updates an employee record. |
-| `DELETE` | `/api/employees/{id}` | HR_ADMIN | Deletes an employee record. |
-
-### Department Endpoints
-| Method | Endpoint | Access Level | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/departments` | Authenticated | Lists all departments. |
-| `GET` | `/api/departments/{id}` | Authenticated | Retrieves department details. |
-| `POST` | `/api/departments` | HR_ADMIN | Creates a new department. |
-| `PUT` | `/api/departments/{id}` | HR_ADMIN | Updates department details. |
-| `DELETE` | `/api/departments/{id}` | HR_ADMIN | Deletes department (restricted if active staff exist). |
-
-### Leave Request & Approval Endpoints
-| Method | Endpoint | Access Level | Description |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/leaves` | Authenticated | Applies for leave (status initialized to `PENDING`). |
-| `POST` | `/api/leaves/evaluate-conflicts` | Authenticated | Pre-evaluates candidate leave for conflicts. |
-| `GET` | `/api/leaves` | Authenticated | Lists leaves (HR: all; Manager: department; Employee: own). |
-| `GET` | `/api/leaves/{id}` | Authenticated | Retrieves leave by ID. |
-| `GET` | `/api/leaves/{id}/conflicts` | Authenticated | Checks conflicts for an existing leave request. |
-| `PUT` | `/api/leaves/{id}/approve` | Manager / HR | Approves leave and deducts balance. |
-| `PUT` | `/api/leaves/{id}/reject` | Manager / HR | Rejects leave request. |
-| `PUT` | `/api/leaves/{id}/cancel` | Authenticated | Cancels pending leave request. |
-
-### Balances & Adjustments Endpoints
-| Method | Endpoint | Access Level | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/leave-balances` | Authenticated | Lists leave balances (filtered by role scope). |
-| `GET` | `/api/leave-balances/{id}` | Authenticated | Retrieves leave balance by ID. |
-| `GET` | `/api/leave-balances/employee/{id}` | Authenticated | Retrieves balances for a specific employee. |
-| `POST` | `/api/leave-balances` | HR_ADMIN | Initializes or updates an employee leave balance. |
-| `GET` | `/api/leave-adjustments` | Authenticated | Lists adjustments (filtered by role scope). |
-| `GET` | `/api/leave-adjustments/{id}` | Authenticated | Retrieves adjustment by ID. |
-| `POST` | `/api/leave-adjustments` | HR_ADMIN | Credits or debits an employee's leave balance. |
-
-### Policies, Holidays & Availability Endpoints
-| Method | Endpoint | Access Level | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/leave-types` | Authenticated | Lists all leave types. |
-| `POST` | `/api/leave-types` | HR_ADMIN | Creates a leave type. |
-| `GET` | `/api/leave-policies` | Authenticated | Lists all leave policies. |
-| `POST` | `/api/leave-policies` | HR_ADMIN | Creates a leave policy. |
-| `GET` | `/api/holidays` | Authenticated | Lists all scheduled public holidays. |
-| `POST` | `/api/holidays` | HR_ADMIN | Adds a public holiday. |
-| `GET` | `/api/availability` | Authenticated | Department workforce availability on a given date (requires `departmentId`). |
-| `GET` | `/api/departments/{id}/availability` | Authenticated | Department-specific availability on a given date. |
-| `GET` | `/api/dashboard/overview` | HR_ADMIN | Organization-wide KPI statistics. |
-| `GET` | `/api/audit-history` | HR_ADMIN | Paginated and filtered system audit events. |
-
----
-
-## 11. Configuration
-
-The application uses standard property placeholders in `src/main/resources/application.properties`:
-
-| Property | Environment Variable | Default Value | Description |
-| :--- | :--- | :--- | :--- |
-| `spring.datasource.url` | `DB_URL` | `jdbc:mysql://localhost:3306/employee_leave_db` | MySQL JDBC URL |
-| `spring.datasource.username` | `DB_USERNAME` | `root` | Database user |
-| `spring.datasource.password` | `DB_PASSWORD` | *(empty string)* | Database password |
-| `server.port` | `SERVER_PORT` | `8080` | Backend HTTP port |
-| `jwt.secret` | `JWT_SECRET` | *(ephemeral 256-bit key)* | HS256 JWT HMAC key (auto-generated in-memory if unconfigured) |
-| `jwt.expiration-ms` | `JWT_EXPIRATION_MS` | `86400000` | Token validity in milliseconds (24h) |
-
----
-
-## 12. Local Setup Guide (Windows / PowerShell)
+## Setup & Running Locally
 
 ### Prerequisites
 - **JDK 21** installed (`java -version`)
-- **MySQL 8.0+** running on port 3306 (`net start MySQL80` or via Windows Services)
+- **MySQL 8.0+** running on port 3306
 - **Node.js (v18+) & npm** (`node -v`, `npm -v`)
 - **Git**
 
 ### Step 1 — Clone the Repository
-```powershell
+```bash
 git clone https://github.com/abhishekn27077/Employee-Leave_Management.git
 cd Employee-Leave_Management
 ```
 
-### Step 2 — Configure Database Credentials (If MySQL has a password)
-The default MySQL password is empty. If your local MySQL `root` user requires a password, choose either method:
-- **Method A (Recommended — Permanent & Git-safe)**: Copy `application-example.properties` to `src/main/resources/application-local.properties` (already in `.gitignore`) and specify your password:
+### Step 2 — Configure Database Credentials
+The application is pre-configured to automatically create `employee_leave_db` in MySQL if it does not already exist.
+
+If your local MySQL `root` user requires a password, choose either option:
+- **Option A (Recommended — Git-safe file)**: Copy `src/main/resources/application-example.properties` to `src/main/resources/application-local.properties` (which is gitignored):
   ```properties
   spring.datasource.password=your_mysql_password
   ```
-- **Method B (Environment Variable)**:
+- **Option B (Environment Variable)**:
   ```powershell
   $env:DB_PASSWORD="your_mysql_password"
   ```
 
-*(Note: The JDBC URL is pre-configured with `createDatabaseIfNotExist=true`. As long as MySQL is running, Spring Boot will automatically create `employee_leave_db` on first boot if it does not already exist!)*
-
 ### Step 3 — Run the Application
 
-#### Option 1: Turnkey One-Command Launcher (Recommended)
-Run the included development launcher from the project root:
+#### Option 1: Turnkey One-Command Launcher (Windows PowerShell)
+Run the automated startup script from the root directory:
 ```powershell
 .\start-dev.ps1
 ```
-*This checks prerequisites (Java, Node, MySQL port 3306), verifies configuration, and launches both backend (port 8080) and frontend (port 5173/5174) in separate console windows.*
+*This verifies prerequisites, checks MySQL connectivity, and boots both Spring Boot and Vite in dedicated windows.*
 
-#### Option 2: Manual Terminal Commands
-- **Terminal 1 (Backend)**:
-  ```powershell
-  .\mvnw.cmd spring-boot:run
-  ```
-  *Listens on `http://localhost:8080`. Automatically applies JPA schema and seeds demo accounts.*
-
-- **Terminal 2 (Frontend)**:
-  ```powershell
-  cd frontend
-  npm install
-  npm run dev
-  ```
-  *Opens on `http://localhost:5173` (or `http://localhost:5174` if 5173 is occupied). Both origins are fully allowed by backend CORS.*
-
----
-
-## 13. Demo Walkthrough Accounts
-
-The system automatically initializes 3 demo user accounts:
-
-| Role | Username | Password | Linked Employee | Department |
-| :--- | :--- | :--- | :--- | :--- |
-| **EMPLOYEE** | `employee` | `Employee@123` | Suresh Raina (EMP101) | IT |
-| **MANAGER** | `manager` | `Manager@123` | Aarav Mehta (EMP102) | IT |
-| **HR_ADMIN** | `admin` | `Admin@123` | Priya Nair (EMP301) | Human Resources |
-
-### Demo Workflow Scenarios
-
-1. **Employee Workflow**:
-   - Log in as `employee` / `Employee@123`.
-   - Open **Dashboard** &rarr; View leave balances.
-   - Click **Apply Leave** &rarr; Select Casual Leave, pick dates, enter reason.
-   - Observe real-time conflict checking results.
-   - Click **Submit Leave Request** &rarr; View new `PENDING` request in **My Leaves**.
-   - Log out.
-
-2. **Manager Approval Workflow**:
-   - Log in as `manager` / `Manager@123`.
-   - Open **Dashboard** &rarr; View pending approvals badge.
-   - Open **Leave Approvals** queue &rarr; Review employee leave details and conflicts.
-   - Click **Approve** or **Reject** with remarks.
-   - Verify leave status updates and audit record is generated.
-   - Log out.
-
-3. **HR Administration Workflow**:
-   - Log in as `admin` / `Admin@123`.
-   - Open **Workforce Dashboard** &rarr; Review organization-wide metrics.
-   - Explore **Employees**, **Departments**, **Leave Policies**, and **Holidays**.
-   - Perform a manual balance adjustment in **Leave Adjustments**.
-   - Open **Audit History** &rarr; Inspect audit logs with timestamps and old/new values.
-   - Log out.
-
----
-
-## 14. Testing & Verification
-
-### Run Backend Unit & Service Tests
-Executes 147 automated tests verifying business services, security rules, and conflict detection:
+#### Option 2: Manual Terminal Startup
+**Terminal 1 — Start Backend:**
 ```powershell
-.\mvnw.cmd test
-```
-
-### Build Backend Package
-```powershell
-.\mvnw.cmd clean package
-```
-
-### Run Frontend Production Build
-```powershell
-cd frontend
-npm run build
-```
-
-### Run Frontend Linter
-```powershell
-cd frontend
-npm run lint
-```
-
----
-
-## 15. Security Practices
-
-- **Password Encryption**: All passwords stored using BCrypt with salt.
-- **Stateless Sessions**: JWT tokens validated on every request; no server-side HTTP session storage required.
-- **Role Guards**: Backend endpoints enforce access via `SecurityService` and method security; frontend routes prevent unauthorized navigation.
-- **SQL Injection Prevention**: Parameterized queries and Spring Data JPA criteria queries prevent SQL injection.
-- **Audit Logging**: All state mutations (leaves, approvals, rejections, cancellations, adjustments) generate audit records attributing the authenticated user (or SYSTEM for automated tasks) as the actor.
-- **Repository Hygiene**: Local secrets and build artifacts are strictly ignored via `.gitignore`.
-
----
-
-## 16. Troubleshooting
-
-- **MySQL Connection Refused**:
-  - Verify MySQL service is running in Windows Services (`services.msc`) or run `net start MySQL80`.
-- **Unknown database 'employee_leave_db'**:
-  - Run `CREATE DATABASE IF NOT EXISTS employee_leave_db;` in MySQL.
-- **Port 8080 already in use**:
-  - Terminate the process using port 8080 or pass `$env:SERVER_PORT=8081`.
-- **Port 5173 already in use**:
-  - Vite will automatically prompt or select port 5174.
-- **Frontend API Network Error**:
-  - Ensure the Spring Boot backend is running and accessible on port 8080 before launching the frontend.
-
----
-
-## 17. Important Commands Reference
-
-```powershell
-# Run backend
 .\mvnw.cmd spring-boot:run
+```
+*(Backend initializes on `http://localhost:8080`)*
 
-# Run backend test suite
-.\mvnw.cmd test
-
-# Build backend executable JAR
-.\mvnw.cmd clean package
-
-# Install frontend dependencies
+**Terminal 2 — Start Frontend:**
+```powershell
 cd frontend
 npm install
-
-# Run frontend development server
 npm run dev
-
-# Build frontend production bundle
-npm run build
 ```
+*(Frontend initializes on `http://localhost:5173`)*
+
+---
+
+## Demo Credentials
+
+The application includes pre-seeded demo accounts for each role:
+
+| Role | Username | Password | User Details |
+| :--- | :--- | :--- | :--- |
+| **Employee** | `employee` | `Employee@123` | Suresh Raina (Software Engineer, IT Department) |
+| **Manager** | `manager` | `Manager@123` | Aarav Mehta (Engineering Manager, IT Department) |
+| **HR Admin** | `admin` | `Admin@123` | Priya Nair (HR Director, Human Resources) |
+
+---
+
+## Environment Variables
+
+| Variable | Default Value | Description |
+| :--- | :--- | :--- |
+| `DB_URL` | `jdbc:mysql://localhost:3306/employee_leave_db?createDatabaseIfNotExist=true` | JDBC Connection URL |
+| `DB_USERNAME` | `root` | Database username |
+| `DB_PASSWORD` | *(empty)* | Database password |
+| `JWT_SECRET` | *(Auto-generated 256-bit)* | HMAC-SHA256 signature key (generates secure ephemeral key if unset) |
+| `VITE_API_URL` | `http://localhost:8080/api` | Frontend API base URL |
+
+---
+
+## Roadmap
+
+- [x] Spring Boot 4 REST API & JPA relational architecture
+- [x] JWT Stateless Authentication & Role-Based Access Control
+- [x] Authoritative server-side Leave Conflict & Capacity Engine
+- [x] Employee self-service portal & live balance tracker
+- [x] Manager approval workflow & team availability calendar
+- [x] HR administrative configuration (Departments, Employees, Leave Policies)
+- [x] Manual balance adjustments & immutable audit history
+- [x] Modern enterprise design system (React 19 + Vite)
+- [x] Full unit & integration test coverage (147 tests)
+- [ ] Automated email & Slack notifications for approval requests
+- [ ] Exportable payroll & absence reports (CSV / Excel / PDF)
+- [ ] External calendar synchronization (Google Calendar / Microsoft Outlook)
+- [ ] Multi-tenant enterprise SSO (SAML 2.0 / Okta / Azure AD)
+
+---
+
+## License
+
+This project is maintained for educational and workforce management demonstration purposes. All rights reserved by the author.
+
+---
+
+## Author
+
+Developed by **Abhishek** ([@abhishekn27077](https://github.com/abhishekn27077)).

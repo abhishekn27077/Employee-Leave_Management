@@ -1,0 +1,118 @@
+```mermaid
+erDiagram
+    DEPARTMENTS ||--o{ EMPLOYEES : "employs"
+    EMPLOYEES ||--o{ EMPLOYEES : "reports to (manager)"
+    EMPLOYEES ||--|| USER_ACCOUNTS : "authenticates as"
+    EMPLOYEES ||--o{ LEAVE_BALANCES : "has"
+    EMPLOYEES ||--o{ LEAVES : "requests"
+    EMPLOYEES ||--o{ LEAVE_ADJUSTMENTS : "receives"
+    
+    LEAVE_TYPES ||--|| LEAVE_POLICIES : "governed by"
+    LEAVE_TYPES ||--o{ LEAVE_BALANCES : "allocated in"
+    LEAVE_TYPES ||--o{ LEAVES : "categorized by"
+    LEAVE_TYPES ||--o{ LEAVE_ADJUSTMENTS : "adjusted in"
+
+    DEPARTMENTS {
+        bigint id PK
+        varchar name
+        varchar description
+        boolean active
+    }
+
+    EMPLOYEES {
+        bigint id PK
+        varchar employee_code UK
+        varchar first_name
+        varchar last_name
+        varchar email UK
+        varchar phone
+        varchar designation
+        date joining_date
+        boolean active
+        bigint department_id FK
+        bigint manager_id FK
+    }
+
+    USER_ACCOUNTS {
+        bigint id PK
+        varchar username UK
+        varchar password_hash
+        varchar role "EMPLOYEE | MANAGER | HR_ADMIN"
+        boolean active
+        bigint employee_id FK,UK
+    }
+
+    LEAVE_TYPES {
+        bigint id PK
+        varchar code UK
+        varchar name
+        varchar description
+        int default_days_per_year
+        boolean requires_approval
+        boolean paid
+    }
+
+    LEAVE_POLICIES {
+        bigint id PK
+        bigint leave_type_id FK,UK
+        int max_consecutive_days
+        int min_notice_days
+        boolean carry_forward_allowed
+        int max_carry_forward_days
+        boolean active
+    }
+
+    LEAVE_BALANCES {
+        bigint id PK
+        bigint employee_id FK
+        bigint leave_type_id FK
+        int year
+        decimal entitlement
+        decimal used_days
+        decimal remaining_balance
+    }
+
+    LEAVES {
+        bigint id PK
+        bigint employee_id FK
+        bigint leave_type_id FK
+        date start_date
+        date end_date
+        decimal days_count
+        varchar status "PENDING | APPROVED | REJECTED | CANCELLED"
+        varchar reason
+        varchar rejection_reason
+        datetime applied_at
+        datetime reviewed_at
+        bigint reviewed_by FK
+    }
+
+    LEAVE_ADJUSTMENTS {
+        bigint id PK
+        bigint employee_id FK
+        bigint leave_type_id FK
+        varchar adjustment_type "CREDIT | DEBIT"
+        decimal days
+        varchar reason
+        varchar adjusted_by
+        datetime adjusted_at
+    }
+
+    HOLIDAYS {
+        bigint id PK
+        varchar name
+        date date UK
+        varchar description
+        boolean recurring
+    }
+
+    AUDIT_HISTORY {
+        bigint id PK
+        varchar entity_name
+        bigint entity_id
+        varchar action
+        varchar performed_by
+        datetime timestamp
+        varchar details
+    }
+```

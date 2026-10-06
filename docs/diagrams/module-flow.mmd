@@ -1,0 +1,45 @@
+```mermaid
+flowchart TD
+    Start([User Visits Portal]) --> Login[Login /api/auth/login]
+    Login --> AuthCheck{JWT Valid & Role Verified?}
+
+    AuthCheck -- No --> ErrorState[HTTP 401 / Invalid Credentials]
+    AuthCheck -- Yes --> RoleSwitch{Role Determination}
+
+    %% Employee Pathway
+    RoleSwitch -- "EMPLOYEE" --> EmpDash[Employee Dashboard]
+    EmpDash --> EmpBalances[Leave Balances]
+    EmpDash --> EmpApply[Apply Leave Form]
+    EmpDash --> EmpHistory[My Leaves History]
+    EmpDash --> EmpAvail[Team Availability Calendar]
+    EmpDash --> EmpHolidays[Company Holidays]
+
+    EmpApply --> SubmitLeave[Submit Request]
+    SubmitLeave --> ConflictEngine{Conflict & Policy Check}
+    ConflictEngine -- Pass --> PendingQueue[(Leave Stored as PENDING)]
+    ConflictEngine -- Fail --> ShowValidationErr[Show Inline Policy/Balance Alert]
+
+    %% Manager Pathway
+    RoleSwitch -- "MANAGER" --> MgrDash[Manager Dashboard]
+    MgrDash --> MgrTeam[Team Availability Matrix]
+    MgrDash --> MgrApprovals[Pending Approvals Queue]
+    MgrDash --> MgrSelfLeave[Apply Manager's Own Leave]
+    
+    MgrApprovals --> ReviewAction{Manager Decision}
+    ReviewAction -- Approve --> ApprovedState[Status: APPROVED & Balance Deducted]
+    ReviewAction -- Reject --> RejectedState[Status: REJECTED & Reason Captured]
+
+    %% HR Admin Pathway
+    RoleSwitch -- "HR_ADMIN" --> AdminDash[HR Admin Dashboard]
+    AdminDash --> OrgEmployees[Employee Directory]
+    AdminDash --> OrgDepartments[Department Management]
+    AdminDash --> LeaveConfig[Leave Types & Policies]
+    AdminDash --> BalManagement[Balance Reconciliations]
+    AdminDash --> ManualAdjust[Credit/Debit Adjustments]
+    AdminDash --> HolidayCalendar[Holiday Calendar Config]
+    AdminDash --> AuditViewer[System Audit Trail]
+
+    ApprovedState --> AuditLog[(Audit History Logged)]
+    RejectedState --> AuditLog
+    ManualAdjust --> AuditLog
+```

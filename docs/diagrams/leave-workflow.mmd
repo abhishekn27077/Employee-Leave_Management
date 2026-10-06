@@ -1,0 +1,55 @@
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Employee as Employee (Requester)
+    actor Manager as Manager / Approver
+    participant Portal as React Client
+    participant Conflict as LeaveConflictService
+    participant LeaveSvc as LeaveService
+    participant BalanceSvc as LeaveBalanceService
+    participant Audit as AuditHistoryService
+    participant DB as MySQL Database
+
+    Employee->>Portal: Submit Leave Application (dates, leaveTypeId, reason)
+    Portal->>LeaveSvc: POST /api/leaves
+    LeaveSvc->>Conflict: evaluateConflicts(employeeId, startDate, endDate, leaveTypeId)
+    
+    rect rgb(240, 248, 255)
+        note over Conflict: Validation Gates<br/>1. Check sufficient remaining balance<br/>2. Detect overlapping leaves<br/>3. Exclude weekends & company holidays<br/>4. Validate policy max consecutive days<br/>5. Check department availability threshold
+    end
+
+    alt Conflicts or Insufficient Balance Found
+        Conflict-->>LeaveSvc: Throw Validation / Business Error
+        LeaveSvc-->>Portal: 400 Bad Request (Error description)
+        Portal-->>Employee: Display error alert (application blocked)
+    else Validation Passed
+        Conflict-->>LeaveSvc: Conflict free & net working days calculated
+        LeaveSvc->>DB: Save Leave (status: PENDING)
+        LeaveSvc->>Audit: Log creation event ("LEAVE_APPLIED")
+        LeaveSvc-->>Portal: 201 Created (Leave details)
+        Portal-->>Employee: Show success toast, status: PENDING
+    end
+
+    Manager->>Portal: Review Pending Leave Requests
+    Portal->>LeaveSvc: GET /api/leaves/pending
+    LeaveSvc-->>Portal: List of pending department leaves
+
+    alt Manager Approves Request
+        Manager->>Portal: Click Approve
+        Portal->>LeaveSvc: PUT /api/leaves/{id}/approve
+        LeaveSvc->>BalanceSvc: Deduct used days from leave balance
+        BalanceSvc->>DB: Update LeaveBalance (usedDays += N, remainingBalance -= N)
+        LeaveSvc->>DB: Update Leave (status: APPROVED, reviewedAt, reviewedBy)
+        LeaveSvc->>Audit: Log approval event ("LEAVE_APPROVED")
+        LeaveSvc-->>Portal: 200 OK (Updated status: APPROVED)
+        Portal-->>Manager: Real-time status update to Approved
+    else Manager Rejects Request
+        Manager->>Portal: Click Reject (provide rejection reason)
+        Portal->>LeaveSvc: PUT /api/leaves/{id}/reject
+        LeaveSvc->>DB: Update Leave (status: REJECTED, rejectionReason)
+        note over BalanceSvc: No balance deduction occurs
+        LeaveSvc->>Audit: Log rejection event ("LEAVE_REJECTED")
+        LeaveSvc-->>Portal: 200 OK (Updated status: REJECTED)
+        Portal-->>Manager: Status updated to Rejected
+    end
+```

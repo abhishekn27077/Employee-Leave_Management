@@ -24,6 +24,7 @@ pnpm-debug.log*
 # Environment & Local Secrets Configuration
 .env
 .env.*
+!.env.example
 *.env
 *.env.properties
 .env.local

@@ -1,0 +1,60 @@
+```mermaid
+graph TD
+    subgraph Client["Frontend Client (React 19 + Vite)"]
+        UI["Modern UI / Enterprise Portal (HTML5, CSS3, JS)"]
+        Router["React Router v7 (Role-Based Protected Routes)"]
+        AxiosClient["Axios HTTP Client (Bearer JWT Token)"]
+        UI --> Router
+        Router --> AxiosClient
+    end
+
+    subgraph Security["Security & Interceptor Layer"]
+        CORS["CORS Filter (Scoped Local Origins)"]
+        SecInterceptor["SecurityInterceptor (Stateless JWT RBAC)"]
+        TokenProvider["JwtTokenProvider (HMAC-SHA256, 24h)"]
+        CORS --> SecInterceptor
+        SecInterceptor --> TokenProvider
+    end
+
+    subgraph Controllers["Spring Boot REST API Controllers (:8080)"]
+        AuthCtrl["AuthController (/api/auth)"]
+        EmpCtrl["EmployeeController (/api/employees)"]
+        DeptCtrl["DepartmentController (/api/departments)"]
+        LeaveCtrl["LeaveController (/api/leaves)"]
+        BalCtrl["LeaveBalanceController (/api/leave-balances)"]
+        AvailCtrl["TeamAvailabilityController (/api/availability)"]
+        PolicyCtrl["LeavePolicyController (/api/leave-policies)"]
+        AdjCtrl["LeaveAdjustmentController (/api/leave-adjustments)"]
+        AuditCtrl["AuditHistoryController (/api/audit-history)"]
+    end
+
+    subgraph Services["Core Business Logic & Conflict Engine"]
+        AuthSvc["AuthService (BCrypt Hashing)"]
+        LeaveSvc["LeaveService (State & Deductions)"]
+        ConflictEngine["LeaveConflictService (Rule & Capacity Engine)"]
+        BalanceSvc["LeaveBalanceService (Accrual & Balance Match)"]
+        AvailSvc["TeamAvailabilityService (Dept Roster Tracking)"]
+        AuditSvc["AuditHistoryService (Immutable Event Logging)"]
+    end
+
+    subgraph Persistence["Persistence & Data Access"]
+        JPA["Spring Data JPA Repositories"]
+        Hibernate["Hibernate 6 ORM"]
+        Hikari["HikariCP Connection Pool"]
+        JPA --> Hibernate
+        Hibernate --> Hikari
+    end
+
+    subgraph Storage["Database Layer"]
+        MySQL[("MySQL 8.0 Engine\n(employee_leave_db)")]
+        Hikari --> MySQL
+    end
+
+    AxiosClient -->|HTTP REST| CORS
+    SecInterceptor --> Controllers
+    Controllers --> Services
+    LeaveSvc --> ConflictEngine
+    LeaveSvc --> BalanceSvc
+    LeaveSvc --> AuditSvc
+    Services --> JPA
+```
