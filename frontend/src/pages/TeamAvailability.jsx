@@ -248,9 +248,9 @@ function TeamAvailability() {
                           <td>
                             <div className="flex items-center gap-2">
                               <Avatar name={emp.name} size="sm" />
-                              <div>
-                                <span className="font-semibold text-primary text-xs block">{emp.name}</span>
-                                <span className="text-[11px] font-mono text-muted">{emp.employeeId}</span>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-primary text-xs leading-snug">{emp.name}</span>
+                                <span className="text-[11px] font-mono text-muted leading-tight">{emp.employeeId}</span>
                               </div>
                             </div>
                           </td>
@@ -303,9 +303,9 @@ function TeamAvailability() {
                           <td>
                             <div className="flex items-center gap-2">
                               <Avatar name={emp.name} size="sm" />
-                              <div>
-                                <span className="font-semibold text-primary text-xs block">{emp.name}</span>
-                                <span className="text-[11px] font-mono text-muted">{emp.employeeId}</span>
+                              <div className="flex flex-col">
+                                <span className="font-semibold text-primary text-xs leading-snug">{emp.name}</span>
+                                <span className="text-[11px] font-mono text-muted leading-tight">{emp.employeeId}</span>
                               </div>
                             </div>
                           </td>

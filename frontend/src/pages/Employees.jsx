@@ -480,9 +480,9 @@ function Employees() {
                       <td>
                         <div className="flex items-center gap-2.5">
                           <Avatar name={emp.name} size="sm" />
-                          <div>
-                            <span className="font-semibold text-primary text-xs block">{emp.name}</span>
-                            <span className="text-[11px] text-muted">{emp.email}</span>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-primary text-xs leading-snug">{emp.name}</span>
+                            <span className="text-[11px] text-muted leading-tight">{emp.email}</span>
                           </div>
                         </div>
                       </td>
@@ -560,7 +560,7 @@ function Employees() {
                               </button>
                               <button
                                 type="button"
-                                className="btn btn-danger btn-sm text-[11px] py-1 px-2"
+                                className="btn btn-outline-danger btn-sm text-[11px] py-1 px-2"
                                 onClick={() => setDeleteTarget(emp)}
                                 title="Delete profile"
                               >

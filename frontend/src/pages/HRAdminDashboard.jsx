@@ -10,7 +10,6 @@ import {
 import AlertMessage from '../components/AlertMessage';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
-import StatCard from '../components/StatCard';
 import SkeletonLoader from '../components/SkeletonLoader';
 import Avatar from '../components/Avatar';
 import EmptyState from '../components/EmptyState';
@@ -23,7 +22,6 @@ import {
   IconAlertCircle,
   IconLeaves,
   IconEmployees,
-  IconDepartments,
 } from '../components/Icons';
 
 export default function HRAdminDashboard() {
@@ -251,296 +249,266 @@ export default function HRAdminDashboard() {
       {error && <AlertMessage type="error" message={error} onClose={() => setError('')} />}
       {success && <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />}
 
-      {/* 2. Top KPI Cards - Compact Enterprise SaaS Proportions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        <StatCard
-          label="Total Headcount"
-          value={overview?.totalEmployees ?? 0}
-          unit="staff"
-          subtext={`Across ${overview?.totalDepartments ?? 0} business units`}
-          icon={<IconEmployees size={16} />}
-          tone="slate"
-          linkTo="/employees"
-          linkText="Employee roster"
-        />
+      {/* 2. Operational Hierarchy Zone 1: Executive Workforce Strip */}
+      <div className="workforce-overview-strip">
+        <Link to="/employees" className="overview-strip-item">
+          <div className="overview-item-label">
+            <span>Workforce Headcount</span>
+            <IconEmployees size={14} className="text-muted" />
+          </div>
+          <div className="overview-item-value">
+            {overview?.totalEmployees ?? 0}
+            <span className="overview-item-unit">staff</span>
+          </div>
+          <div className="overview-item-subtext">
+            Across {overview?.totalDepartments ?? 0} business units &rarr;
+          </div>
+        </Link>
 
-        <StatCard
-          label="Departments"
-          value={overview?.totalDepartments ?? 0}
-          unit="units"
-          subtext="Configured teams"
-          icon={<IconDepartments size={16} />}
-          tone="slate"
-          linkTo="/departments"
-          linkText="Manage depts"
-        />
+        <Link to="/availability" className="overview-strip-item">
+          <div className="overview-item-label">
+            <span>Active on Duty</span>
+            <IconCheckCircle size={14} style={{ color: 'var(--success)' }} />
+          </div>
+          <div className="overview-item-value">
+            {activeWorkforce}
+            <span className="overview-item-unit">staff ({overview?.organizationAvailabilityPercentage ?? 100}%)</span>
+          </div>
+          <div className="overview-item-subtext">
+            Operating capacity &rarr;
+          </div>
+        </Link>
 
-        <StatCard
-          label="Pending Approvals"
-          value={overview?.pendingLeaves ?? 0}
-          unit={(overview?.pendingLeaves ?? 0) === 1 ? "request" : "requests"}
-          subtext={(overview?.pendingWithConflictsCount ?? 0) > 0 ? `${overview.pendingWithConflictsCount} with conflicts` : 'Awaiting decision'}
-          icon={<IconClock size={16} />}
-          tone={(overview?.pendingLeaves ?? 0) > 0 ? 'amber' : 'slate'}
-          badge={(overview?.pendingWithConflictsCount ?? 0) > 0 ? 'Attention' : undefined}
-          linkTo="#pending-requests-section"
-          linkText="Review queue"
-        />
+        <Link to="/availability" className="overview-strip-item">
+          <div className="overview-item-label">
+            <span>On Leave Today</span>
+            <IconLeaves size={14} style={{ color: (overview?.totalOnLeaveEmployees ?? 0) > 0 ? 'var(--warning)' : 'var(--text-muted)' }} />
+          </div>
+          <div className="overview-item-value">
+            {overview?.totalOnLeaveEmployees ?? 0}
+            <span className="overview-item-unit">absent</span>
+          </div>
+          <div className="overview-item-subtext">
+            Scheduled absence &rarr;
+          </div>
+        </Link>
 
-        <StatCard
-          label="On Leave Today"
-          value={overview?.totalOnLeaveEmployees ?? 0}
-          unit="staff"
-          subtext="Active today"
-          icon={<IconLeaves size={16} />}
-          tone={(overview?.totalOnLeaveEmployees ?? 0) > 0 ? 'amber' : 'slate'}
-          linkTo="/availability"
-          linkText="Calendar view"
-        />
+        <a href="#pending-requests-section" className="overview-strip-item">
+          <div className="overview-item-label">
+            <span>Pending Approvals</span>
+            <IconClock size={14} style={{ color: (overview?.pendingLeaves ?? 0) > 0 ? 'var(--warning)' : 'var(--text-muted)' }} />
+          </div>
+          <div className="overview-item-value">
+            {overview?.pendingLeaves ?? 0}
+            <span className="overview-item-unit">requests</span>
+          </div>
+          <div className="overview-item-subtext">
+            {(overview?.pendingWithConflictsCount ?? 0) > 0 ? (
+              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{overview.pendingWithConflictsCount} with conflicts &rarr;</span>
+            ) : (
+              'Awaiting decision &rarr;'
+            )}
+          </div>
+        </a>
 
-        <StatCard
-          label="Org Availability"
-          value={`${overview?.organizationAvailabilityPercentage ?? 100}%`}
-          subtext={`${overview?.totalAvailableEmployees ?? 0} active on duty`}
-          icon={<IconCheckCircle size={16} />}
-          tone="primary"
-          linkTo="/availability"
-          linkText="Staffing matrix"
-        />
-
-        <StatCard
-          label="Quota Usage"
-          value={`${overview?.utilizationPercentage ?? 0}%`}
-          subtext={`${overview?.totalUsedDays ?? 0} of ${overview?.totalEntitlementDays ?? 0}d used`}
-          icon={<IconCalendar size={16} />}
-          tone="purple"
-          linkTo="/balances"
-          linkText="Quota breakdown"
-        />
+        <Link to="/balances" className="overview-strip-item">
+          <div className="overview-item-label">
+            <span>Quota Utilization</span>
+            <IconCalendar size={14} className="text-muted" />
+          </div>
+          <div className="overview-item-value">
+            {overview?.utilizationPercentage ?? 0}%
+            <span className="overview-item-unit">used</span>
+          </div>
+          <div className="overview-item-subtext">
+            {overview?.totalUsedDays ?? 0} of {overview?.totalEntitlementDays ?? 0}d allocated &rarr;
+          </div>
+        </Link>
       </div>
 
-      {/* 3. Operational Alerts & Exceptions Panel */}
-      {((overview?.detectedConflicts && overview.detectedConflicts.length > 0) ||
-        lowAvailabilityDepts.length > 0 ||
-        (overview?.pendingLeaves ?? 0) > 0) && (
-        <div className="card-modern p-5" style={{ borderLeft: '4px solid var(--color-warning)' }}>
-          <div className="flex items-center gap-2 mb-3">
-            <IconAlertCircle size={18} style={{ color: 'var(--color-warning)' }} />
-            <h2 className="text-sm font-semibold text-primary m-0">
-              Operational Alerts & Exceptions
-            </h2>
+      {/* 3. Operational Hierarchy Zone 2: Attention Required Action Center */}
+      <div className="attention-center-card">
+        <div className="attention-header">
+          <div className="attention-title">
+            <IconAlertCircle size={16} style={{ color: 'var(--warning)' }} />
+            <span>Attention Required &mdash; Operational Exceptions</span>
+          </div>
+          <div className="text-xs text-muted font-mono">
+            Audit Date: {availabilityDate}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Item 1: Pending Approvals */}
+          <div className="p-3 rounded border text-xs flex flex-col justify-between" style={{ background: 'var(--surface-alt)', borderColor: 'var(--border)' }}>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-semibold text-primary">Pending Approvals</span>
+                <span className="font-mono font-bold px-1.5 py-0.5 rounded text-[11px]" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>
+                  {overview?.pendingLeaves ?? 0} items
+                </span>
+              </div>
+              <p className="text-secondary m-0">
+                {(overview?.pendingLeaves ?? 0) > 0
+                  ? `${overview.pendingLeaves} request(s) awaiting managerial authorization or HR determination.`
+                  : 'All leave applications determined. Queue clear.'}
+              </p>
+            </div>
+            <div className="mt-3">
+              <a href="#pending-requests-section" className="btn btn-secondary btn-sm text-[11px] w-full justify-center">
+                Review Queue &darr;
+              </a>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Condition 1: Leave Conflicts */}
+          {/* Item 2: Schedule & Policy Conflicts */}
+          <div className="p-3 rounded border text-xs flex flex-col justify-between" style={{ background: 'var(--surface-alt)', borderColor: 'var(--border)' }}>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-semibold text-primary">Schedule Conflicts</span>
+                <span className="font-mono font-bold px-1.5 py-0.5 rounded text-[11px]" style={{ background: (overview?.detectedConflicts?.length ?? 0) > 0 ? 'var(--danger-bg)' : 'var(--success-bg)', color: (overview?.detectedConflicts?.length ?? 0) > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                  {overview?.detectedConflicts?.length ?? 0} active
+                </span>
+              </div>
+              <p className="text-secondary m-0">
+                {(overview?.detectedConflicts?.length ?? 0) > 0
+                  ? `${overview.detectedConflicts.length} pending request(s) flag overlapping schedules or department minimum violations.`
+                  : 'No blocking leave schedule overlaps or threshold violations detected.'}
+              </p>
+            </div>
             {overview?.detectedConflicts && overview.detectedConflicts.length > 0 && (
-              <div className="p-3.5 rounded-lg border text-xs" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-                <span className="font-semibold px-2 py-0.5 rounded text-[11px] font-mono mb-2 inline-block" style={{ background: 'var(--color-danger-light)', color: 'var(--color-danger)' }}>
-                  Leave Conflicts ({overview.detectedConflicts.length})
-                </span>
-                <p className="text-secondary m-0 mb-2">
-                  Overlapping bookings or department minimum threshold issues detected:
-                </p>
-                <div className="space-y-1.5">
-                  {overview.detectedConflicts.map((c) => (
-                    <div
-                      key={`conf-${c.leaveId}`}
-                      className="p-2 rounded flex justify-between items-center"
-                      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-                    >
-                      <span className="truncate pr-2">
-                        <strong>{c.employeeName}</strong> &bull; {c.departmentName}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const target = pendingLeaves.find((l) => l.id === c.leaveId);
-                          if (target) openReviewModal(target);
-                        }}
-                        className="btn btn-secondary btn-sm text-[11px] py-0.5 px-2"
-                      >
-                        Inspect
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Condition 2: Low Availability Departments */}
-            {lowAvailabilityDepts.length > 0 && (
-              <div className="p-3.5 rounded-lg border text-xs" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-                <span className="font-semibold px-2 py-0.5 rounded text-[11px] font-mono mb-2 inline-block" style={{ background: 'var(--color-warning-light)', color: 'var(--color-warning)' }}>
-                  Low Capacity Alert ({lowAvailabilityDepts.length})
-                </span>
-                <p className="text-secondary m-0 mb-2">
-                  Departments under the 80% staffing threshold on {availabilityDate}:
-                </p>
-                <div className="space-y-1.5">
-                  {lowAvailabilityDepts.map((d) => (
-                    <div
-                      key={`low-${d.departmentId}`}
-                      className="p-2 rounded flex justify-between items-center"
-                      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-                    >
-                      <span>
-                        <strong>{d.departmentName}</strong>: {d.onLeaveCount} absent
-                      </span>
-                      <span className="font-mono font-bold" style={{ color: 'var(--color-danger)' }}>
-                        {Math.round(d.availabilityPercentage)}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Condition 3: Pending Approvals Oversight */}
-            {(overview?.pendingLeaves ?? 0) > 0 && (
-              <div className="p-3.5 rounded-lg border text-xs flex flex-col justify-between" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-                <div>
-                  <span className="font-semibold px-2 py-0.5 rounded text-[11px] font-mono mb-2 inline-block" style={{ background: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
-                    Pending Approvals Queue
-                  </span>
-                  <p className="text-secondary m-0">
-                    {overview.pendingLeaves} requests currently await administrative or department manager authorization.
-                  </p>
-                </div>
-                <div className="mt-3">
-                  <Link to="/leaves" className="btn btn-secondary btn-sm text-xs w-full justify-center">
-                    Open Full Leave Registry
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Main Grid: Section 1 Workforce Overview & Section 4 Department Availability */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Section 1: Workforce Overview */}
-        <div className="card-modern p-5">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-primary m-0">Workforce Overview</h2>
-              <p className="text-xs text-secondary m-0 mt-0.5">Staffing deployment and active duty distribution</p>
-            </div>
-            <Link to="/employees" className="text-xs font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
-              Manage Employees &rarr;
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2.5 p-3.5 rounded-lg border mb-4 text-center" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
-            <div>
-              <div className="text-[11px] text-secondary font-medium">Total Staff</div>
-              <div className="text-xl font-bold text-primary font-mono mt-1">
-                {overview?.totalEmployees ?? 0}
-              </div>
-            </div>
-            <div className="border-x" style={{ borderColor: 'var(--color-border)' }}>
-              <div className="text-[11px] font-medium" style={{ color: 'var(--color-success)' }}>Active Duty</div>
-              <div className="text-xl font-bold font-mono mt-1" style={{ color: 'var(--color-success)' }}>
-                {activeWorkforce}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] font-medium" style={{ color: 'var(--color-warning)' }}>On Leave</div>
-              <div className="text-xl font-bold font-mono mt-1" style={{ color: 'var(--color-warning)' }}>
-                {overview?.totalOnLeaveEmployees ?? 0}
-              </div>
-            </div>
-          </div>
-
-          <h3 className="text-xs font-semibold text-secondary uppercase tracking-wider mb-2">
-            Headcount by Department
-          </h3>
-          <div className="space-y-2.5">
-            {overview?.departmentAvailability?.map((dept) => {
-              const pctOfTotal =
-                overview.totalEmployees > 0
-                  ? Math.round((dept.totalEmployees / overview.totalEmployees) * 100)
-                  : 0;
-              return (
-                <div key={`dist-${dept.departmentId}`} className="space-y-1 text-xs">
-                  <div className="flex justify-between">
-                    <span className="font-semibold text-primary">{dept.departmentName}</span>
-                    <span className="text-secondary font-mono">
-                      {dept.totalEmployees} staff ({pctOfTotal}%)
-                    </span>
-                  </div>
-                  <div className="progress-track">
-                    <div
-                      className="progress-fill"
-                      style={{
-                        width: `${pctOfTotal}%`,
-                        background: 'var(--color-primary)',
+              <div className="mt-2 space-y-1">
+                {overview.detectedConflicts.slice(0, 2).map((c) => (
+                  <div key={`conf-${c.leaveId}`} className="flex items-center justify-between p-1.5 rounded bg-white border border-slate-200">
+                    <span className="truncate pr-1"><strong>{c.employeeName}</strong> ({c.departmentName})</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = pendingLeaves.find((l) => l.id === c.leaveId);
+                        if (target) openReviewModal(target);
                       }}
-                    />
+                      className="btn btn-secondary btn-sm text-[10px] py-0 px-1.5"
+                    >
+                      Inspect
+                    </button>
                   </div>
-                </div>
-              );
-            })}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Item 3: Low Capacity Teams */}
+          <div className="p-3 rounded border text-xs flex flex-col justify-between" style={{ background: 'var(--surface-alt)', borderColor: 'var(--border)' }}>
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-semibold text-primary">Department Capacity</span>
+                <span className="font-mono font-bold px-1.5 py-0.5 rounded text-[11px]" style={{ background: lowAvailabilityDepts.length > 0 ? 'var(--warning-bg)' : 'var(--success-bg)', color: lowAvailabilityDepts.length > 0 ? 'var(--warning)' : 'var(--success)' }}>
+                  {lowAvailabilityDepts.length > 0 ? `${lowAvailabilityDepts.length} low` : 'Stable'}
+                </span>
+              </div>
+              <p className="text-secondary m-0">
+                {lowAvailabilityDepts.length > 0
+                  ? `${lowAvailabilityDepts.map(d => `${d.departmentName} (${Math.round(d.availabilityPercentage)}%)`).join(', ')} under 80% staffing threshold.`
+                  : 'All active departments satisfy the minimum 80% staffing availability threshold.'}
+              </p>
+            </div>
+            <div className="mt-3">
+              <Link to="/availability" className="btn btn-secondary btn-sm text-[11px] w-full justify-center">
+                Staffing Matrix &rarr;
+              </Link>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Section 4: Department Availability */}
-        <div className="card-modern p-5">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h2 className="text-base font-semibold text-primary m-0">Department Availability Matrix</h2>
-              <p className="text-xs text-secondary m-0 mt-0.5">Staffing percentage for {availabilityDate}</p>
-            </div>
-            <Link to="/availability" className="text-xs font-medium hover:underline" style={{ color: 'var(--color-primary)' }}>
-              Full Matrix &rarr;
-            </Link>
+      {/* 4. Operational Hierarchy Zone 3: Department Coverage & Staffing Matrix */}
+      <div className="card-modern p-5">
+        <div className="flex justify-between items-center mb-3">
+          <div>
+            <h2 className="text-sm font-semibold text-primary m-0 uppercase tracking-wider">
+              Department Coverage & Staffing Matrix
+            </h2>
+            <p className="text-xs text-secondary m-0 mt-0.5">
+              Live capacity breakdown and threshold compliance across {overview?.totalDepartments ?? 0} business units on {availabilityDate}
+            </p>
           </div>
+          <Link to="/availability" className="text-xs font-semibold hover:underline" style={{ color: 'var(--color-primary)' }}>
+            Full Staffing Schedule &rarr;
+          </Link>
+        </div>
 
-          <div className="table-wrapper-modern">
-            <table className="table-modern">
-              <thead>
-                <tr>
-                  <th>Department</th>
-                  <th style={{ textAlign: 'center' }}>Staff</th>
-                  <th style={{ textAlign: 'center' }}>On Leave</th>
-                  <th style={{ textAlign: 'center' }}>Available</th>
-                  <th style={{ textAlign: 'right' }}>Availability</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overview?.departmentAvailability?.map((dept) => {
-                  const availPct = Math.round(dept.availabilityPercentage);
-                  const isLow = dept.totalEmployees > 0 && availPct < 80;
-                  return (
-                    <tr key={`dept-row-${dept.departmentId}`}>
-                      <td>
-                        <strong className="text-primary font-medium">{dept.departmentName}</strong>
-                      </td>
-                      <td style={{ textAlign: 'center' }} className="font-mono text-secondary">{dept.totalEmployees}</td>
-                      <td style={{ textAlign: 'center', color: dept.onLeaveCount > 0 ? 'var(--color-warning)' : 'var(--color-text-muted)' }} className="font-mono">
-                        {dept.onLeaveCount}
-                      </td>
-                      <td style={{ textAlign: 'center', color: 'var(--color-success)' }} className="font-mono font-semibold">
-                        {dept.availableCount}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <span
-                          className="px-2 py-0.5 rounded font-mono font-semibold text-xs"
-                          style={{
-                            background: isLow ? 'var(--color-danger-light)' : 'var(--color-success-light)',
-                            color: isLow ? 'var(--color-danger)' : 'var(--color-success)',
-                            border: `1px solid ${isLow ? 'var(--color-danger)' : 'var(--color-success)'}`,
-                          }}
-                        >
+        <div className="table-wrapper-modern">
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Department</th>
+                <th style={{ textAlign: 'center' }}>Total Staff</th>
+                <th style={{ textAlign: 'center' }}>On Leave</th>
+                <th style={{ textAlign: 'center' }}>Active On Duty</th>
+                <th>Capacity Rate</th>
+                <th style={{ textAlign: 'center' }}>Staffing Status</th>
+                <th style={{ textAlign: 'right' }}>Roster</th>
+              </tr>
+            </thead>
+            <tbody>
+              {overview?.departmentAvailability?.map((dept) => {
+                const availPct = Math.round(dept.availabilityPercentage);
+                const isLow = dept.totalEmployees > 0 && availPct < 80;
+                return (
+                  <tr key={`dept-row-${dept.departmentId}`}>
+                    <td>
+                      <strong className="text-primary text-xs font-semibold">{dept.departmentName}</strong>
+                    </td>
+                    <td style={{ textAlign: 'center' }} className="font-mono text-secondary text-xs">
+                      {dept.totalEmployees}
+                    </td>
+                    <td style={{ textAlign: 'center', color: dept.onLeaveCount > 0 ? 'var(--warning)' : 'var(--text-muted)' }} className="font-mono text-xs">
+                      {dept.onLeaveCount}
+                    </td>
+                    <td style={{ textAlign: 'center', color: 'var(--success)' }} className="font-mono font-semibold text-xs">
+                      {dept.availableCount}
+                    </td>
+                    <td style={{ minWidth: '160px' }}>
+                      <div className="flex items-center gap-2">
+                        <div className="progress-track" style={{ margin: 0, height: '5px', flex: 1 }}>
+                          <div
+                            className="progress-fill"
+                            style={{
+                              width: `${availPct}%`,
+                              background: isLow ? 'var(--danger)' : 'var(--accent)',
+                            }}
+                          />
+                        </div>
+                        <span className="font-mono text-xs font-semibold" style={{ color: isLow ? 'var(--danger)' : 'var(--text-primary)', width: '38px', textAlign: 'right' }}>
                           {availPct}%
                         </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span
+                        className="px-2 py-0.5 rounded font-mono font-semibold text-[11px]"
+                        style={{
+                          background: isLow ? 'var(--danger-bg)' : 'var(--success-bg)',
+                          color: isLow ? 'var(--danger)' : 'var(--success)',
+                          border: `1px solid ${isLow ? 'var(--danger-border)' : 'var(--success-border)'}`,
+                        }}
+                      >
+                        {isLow ? 'Low Capacity' : 'Operational'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <Link
+                        to="/employees"
+                        className="text-xs font-medium hover:underline text-secondary"
+                      >
+                        View &rarr;
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 

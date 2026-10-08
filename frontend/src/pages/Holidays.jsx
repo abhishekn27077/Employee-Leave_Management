@@ -346,7 +346,7 @@ function Holidays() {
                             </button>
                             <button
                               type="button"
-                              className="btn btn-danger btn-sm text-[11px] py-1 px-2"
+                              className="btn btn-outline-danger btn-sm text-[11px] py-1 px-2"
                               onClick={() => confirmDelete(h)}
                               title="Delete holiday"
                             >

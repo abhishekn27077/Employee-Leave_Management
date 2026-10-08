@@ -554,6 +554,8 @@ The application includes pre-seeded demo accounts for each role:
 | **Manager** | `manager` | `Manager@123` | Aarav Mehta (Engineering Manager, IT Department) |
 | **HR Admin** | `admin` | `Admin@123` | Priya Nair (HR Director, Human Resources) |
 
+> **Full Demo Workforce Directory**: For the complete directory of demo login credentials for all 12 seeded employees across IT, Engineering, Human Resources, Finance, and Operations departments, refer to [docs/DEMO_CREDENTIALS.md](docs/DEMO_CREDENTIALS.md).
+
 ---
 
 ## Environment Variables

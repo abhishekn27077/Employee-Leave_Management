@@ -244,28 +244,18 @@ function Leaves() {
         actions={
           <div className="flex items-center gap-2.5 flex-wrap">
             {isManager && (
-              <div className="inline-flex rounded-lg p-1 border" style={{ background: 'var(--color-bg-secondary)', borderColor: 'var(--color-border)' }}>
+              <div className="scope-pill-group">
                 <button
                   type="button"
                   onClick={() => setSearchParams({ scope: 'approvals' })}
-                  className="px-3 py-1 text-xs font-semibold rounded-md border-none cursor-pointer transition-all"
-                  style={{
-                    background: scope !== 'mine' ? 'var(--color-surface)' : 'transparent',
-                    color: scope !== 'mine' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                    boxShadow: scope !== 'mine' ? 'var(--shadow-sm)' : 'none',
-                  }}
+                  className={`scope-pill-btn ${scope !== 'mine' ? 'active' : ''}`}
                 >
                   Team Queue
                 </button>
                 <button
                   type="button"
                   onClick={() => setSearchParams({ scope: 'mine' })}
-                  className="px-3 py-1 text-xs font-semibold rounded-md border-none cursor-pointer transition-all"
-                  style={{
-                    background: scope === 'mine' ? 'var(--color-surface)' : 'transparent',
-                    color: scope === 'mine' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                    boxShadow: scope === 'mine' ? 'var(--shadow-sm)' : 'none',
-                  }}
+                  className={`scope-pill-btn ${scope === 'mine' ? 'active' : ''}`}
                 >
                   My Requests
                 </button>
@@ -306,22 +296,11 @@ function Leaves() {
               <button
                 key={tab}
                 type="button"
-                className="px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer border transition-all flex items-center gap-2"
-                style={{
-                  background: isActive ? 'var(--color-primary-light)' : 'transparent',
-                  borderColor: isActive ? 'var(--color-primary)' : 'transparent',
-                  color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                }}
+                className={`filter-tab-btn ${isActive ? 'active' : ''}`}
                 onClick={() => setActiveFilter(tab)}
               >
                 <span>{tab.charAt(0) + tab.slice(1).toLowerCase()}</span>
-                <span
-                  className="text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold"
-                  style={{
-                    background: isActive ? 'var(--color-primary)' : 'var(--color-bg-secondary)',
-                    color: isActive ? '#ffffff' : 'var(--color-text-muted)',
-                  }}
-                >
+                <span className="filter-tab-badge">
                   {count}
                 </span>
               </button>
@@ -404,8 +383,8 @@ function Leaves() {
                       <td>
                         <div className="flex items-center gap-2.5">
                           <Avatar name={empName} size="sm" />
-                          <div>
-                            <span className="font-semibold text-primary text-xs block">{empName}</span>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-primary text-xs leading-snug">{empName}</span>
                             <div className="flex items-center gap-1.5 text-[11px] text-muted">
                               <span className="font-mono">{leave.employee?.employeeId || '—'}</span>
                               <span>&bull;</span>
@@ -463,7 +442,7 @@ function Leaves() {
                               </button>
                               <button
                                 type="button"
-                                className="btn btn-danger btn-sm text-[11px] py-1 px-2"
+                                className="btn btn-outline-danger btn-sm text-[11px] py-1 px-2"
                                 onClick={() => openReviewModal(leave, 'reject')}
                                 disabled={actionLoading}
                                 title="Reject"

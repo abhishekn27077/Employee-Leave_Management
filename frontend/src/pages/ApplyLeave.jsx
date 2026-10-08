@@ -351,7 +351,7 @@ export default function ApplyLeave() {
                 key={n}
                 className="w-5 h-1.5 rounded-full"
                 style={{
-                  background: n < currentStep ? 'var(--color-primary)' : n === currentStep ? '#2563eb' : '#e2e8f0',
+                  background: n < currentStep ? 'var(--color-accent)' : n === currentStep ? 'var(--color-primary)' : 'var(--color-border)',
                 }}
               />
             ))}

@@ -15,7 +15,6 @@ import {
   IconX,
   IconCheck,
   IconBan,
-  IconAlertCircle,
 } from '../components/Icons';
 
 export default function AuditHistory() {
